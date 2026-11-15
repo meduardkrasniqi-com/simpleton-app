@@ -21,7 +21,8 @@ const CLOSE = { replaced: 4000, unauthorized: 4001, invalidName: 4002, taken: 40
 const HEARTBEAT_MS = 25_000;
 const REQUEST_TIMEOUT_MS = 25_000;
 const MAX_BODY = 20 * 1024 * 1024;
-const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+const VERBS = new Set(["fix", "add", "update", "make", "create", "implement", "change", "remove", "refactor", "build", "improve", "support", "use", "set", "move", "rename", "delete", "new"]);
 const dropRequest = new Set(["host", "connection", "keep-alive", "proxy-connection", "transfer-encoding", "te", "trailer", "upgrade", "accept-encoding", "content-length"]);
 const dropResponse = new Set(["connection", "keep-alive", "transfer-encoding", "content-length"]);
 
@@ -39,14 +40,10 @@ const tunnels = new Map<string, Tunnel>();
 const shareUrl = (name: string) => `https://${name}.${domain}`;
 
 function newName(branch: string) {
-  const base =
-    branch
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40)
-      .replace(/-+$/, "") || "app";
-  const suffix = [...randomBytes(6)].map((byte) => ALPHABET[byte % ALPHABET.length]).join("");
+  const words = branch.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const meaningful = words.filter((word) => !VERBS.has(word));
+  const base = (meaningful.length ? meaningful : words).slice(0, 2).join("-").slice(0, 20).replace(/-+$/, "") || "app";
+  const suffix = [...randomBytes(4)].map((byte) => ALPHABET[byte % ALPHABET.length]).join("");
   return `${base}-${suffix}`;
 }
 
