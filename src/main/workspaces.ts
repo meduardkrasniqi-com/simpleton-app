@@ -8,12 +8,15 @@ import * as store from "./store";
 
 const worktreesDir = () => join(app.getPath("userData"), "worktrees");
 
+const stopwords = new Set(["a", "an", "the", "to", "of", "for", "in", "on", "at", "and", "or", "with", "from", "into", "is", "are", "be", "it", "this", "that", "please"]);
+
 export function slugify(task: string) {
   const slug = task
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
     .trim()
     .split(/\s+/)
+    .filter((word) => !stopwords.has(word))
     .slice(0, 5)
     .join("-")
     .replace(/-+/g, "-")
