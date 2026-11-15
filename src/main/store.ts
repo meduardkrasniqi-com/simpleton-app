@@ -7,15 +7,15 @@ type Listener = (state: AppState) => void;
 
 const file = () => join(app.getPath("userData"), "state.json");
 
-let state: AppState = { repos: [], workspaces: [] };
+let state: AppState = { repos: [], workspaces: [], previews: {} };
 const listeners = new Set<Listener>();
 
 export async function load() {
   try {
     const parsed = JSON.parse(await readFile(file(), "utf8")) as Partial<AppState>;
-    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [] };
+    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], previews: {} };
   } catch {
-    state = { repos: [], workspaces: [] };
+    state = { repos: [], workspaces: [], previews: {} };
   }
   return state;
 }
@@ -29,7 +29,8 @@ let writing: Promise<void> = Promise.resolve();
 async function persist(snapshot: AppState) {
   const target = file();
   await mkdir(dirname(target), { recursive: true });
-  await writeFile(`${target}.tmp`, JSON.stringify(snapshot, null, 2));
+  const { previews: _, ...saved } = snapshot;
+  await writeFile(`${target}.tmp`, JSON.stringify(saved, null, 2));
   await rename(`${target}.tmp`, target);
 }
 

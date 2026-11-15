@@ -9,7 +9,6 @@
 
 ## Accounts and setup
 
-- [ ] Create a GitHub repo and push this code
 - [ ] Install the `claude` and `codex` CLIs and log in to both
 - [ ] Check Anthropic's terms on using Claude subscription login inside a third-party app
 - [ ] Make sure you own `simpleton.io` and add it to Cloudflare
@@ -34,7 +33,7 @@
 
 ## Build next
 
-- [ ] Run Claude Code and Codex inside a workspace and stream their steps
+- [x] Run Claude Code and Codex inside a workspace and stream their steps
 - [ ] Show agent questions with answer buttons
 - [ ] One-click PR with an agent-written description
 - [ ] Start a dev server per workspace and connect it to the relay

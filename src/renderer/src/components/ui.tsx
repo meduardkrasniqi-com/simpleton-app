@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 import { cn } from "@/lib/utils";
 
@@ -38,5 +39,22 @@ export function Mark({ size = 24 }: { size?: number }) {
       <circle cx="8" cy="17.5" r="2.1" fill="#ffffff" />
       <circle cx="16" cy="8.5" r="2.4" fill="#ffffff" />
     </svg>
+  );
+}
+
+const chip = "relative inline-flex h-7 items-center rounded-md border border-line bg-white text-[12.5px] font-medium text-soft hover:border-black/[0.14]";
+
+export function Select<T extends string>({ value, onChange, options }: { value: T; onChange: (value: T) => void; options: { value: T; label: string }[] }) {
+  return (
+    <span className={chip}>
+      <select value={value} onChange={(e) => onChange(e.target.value as T)} className="h-full appearance-none bg-transparent pl-2 pr-6 outline-none">
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-1.5 size-3.5 text-mute" />
+    </span>
   );
 }

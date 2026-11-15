@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import type { FileChange } from "@shared/types";
+import type { DiffLine, FileChange, FileView } from "@shared/types";
 
 const exec = promisify(execFile);
 
@@ -75,4 +75,57 @@ export async function changes(worktree: string, base: string): Promise<FileChang
     files.push({ path, added: await lineCount(join(worktree, path)), removed: 0 });
   }
   return files;
+}
+
+const maxLines = 20000;
+
+function plain(text: string, kind: "add" | "ctx"): FileView {
+  const rows = text.split("\n");
+  if (text.endsWith("\n")) rows.pop();
+  return { binary: false, truncated: rows.length > maxLines, lines: rows.slice(0, maxLines).map((line, i) => ({ kind, text: line, n: i + 1 })) };
+}
+
+function parse(diff: string): FileView {
+  if (/^Binary files .* differ$/m.test(diff)) return { binary: true, truncated: false, lines: [] };
+  const lines: DiffLine[] = [];
+  let n = 0;
+  let started = false;
+  for (const line of diff.split("\n")) {
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    if (hunk) {
+      if (started) lines.push({ kind: "gap", text: "" });
+      started = true;
+      n = Number(hunk[1]);
+      continue;
+    }
+    if (!started || line.startsWith("\\")) continue;
+    if (line.startsWith("+")) lines.push({ kind: "add", text: line.slice(1), n: n++ });
+    else if (line.startsWith("-")) lines.push({ kind: "del", text: line.slice(1) });
+    else if (line.startsWith(" ")) lines.push({ kind: "ctx", text: line.slice(1), n: n++ });
+    if (lines.length >= maxLines) return { binary: false, truncated: true, lines };
+  }
+  return { binary: false, truncated: false, lines };
+}
+
+export async function fileView(worktree: string, base: string, path: string): Promise<FileView> {
+  const full = resolve(worktree, path);
+  if (!full.startsWith(worktree + sep)) throw new Error("Path is outside the workspace");
+  const tracked = await git(worktree, ["ls-files", "--error-unmatch", "--", path]).then(
+    () => true,
+    () => false,
+  );
+  const read = () => readFile(full).catch(() => null);
+  if (!tracked) {
+    const content = await read();
+    if (!content) return { binary: false, truncated: false, lines: [] };
+    if (content.includes(0)) return { binary: true, truncated: false, lines: [] };
+    return plain(content.toString("utf8"), "add");
+  }
+  const mergeBase = await git(worktree, ["merge-base", base, "HEAD"]).catch(() => base);
+  const { stdout } = await exec("git", ["diff", "--no-color", "--no-ext-diff", "-U100000", mergeBase, "--", path], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 });
+  if (stdout.trim()) return parse(stdout);
+  const content = await read();
+  if (!content) return { binary: false, truncated: false, lines: [] };
+  if (content.includes(0)) return { binary: true, truncated: false, lines: [] };
+  return plain(content.toString("utf8"), "ctx");
 }

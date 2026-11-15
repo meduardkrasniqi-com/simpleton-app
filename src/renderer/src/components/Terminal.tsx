@@ -1,0 +1,97 @@
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal as XTerm } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
+import { useEffect, useRef } from "react";
+import type { TermKind } from "@shared/types";
+
+const theme = {
+  background: "#ffffff",
+  foreground: "#0a0a0a",
+  cursor: "#0a0a0a",
+  cursorAccent: "#ffffff",
+  selectionBackground: "rgba(10, 10, 10, 0.14)",
+  black: "#24292f",
+  red: "#cf222e",
+  green: "#116329",
+  yellow: "#9a6700",
+  blue: "#0969da",
+  magenta: "#8250df",
+  cyan: "#1b7c83",
+  white: "#6e7781",
+  brightBlack: "#57606a",
+  brightRed: "#a40e26",
+  brightGreen: "#1a7f37",
+  brightYellow: "#7d4e00",
+  brightBlue: "#218bff",
+  brightMagenta: "#a475f9",
+  brightCyan: "#3192aa",
+  brightWhite: "#8c959f",
+};
+
+export function Terminal({ workspaceId, kind, active }: { workspaceId: string; kind: TermKind; active: boolean }) {
+  const host = useRef<HTMLDivElement>(null);
+  const handle = useRef<{ term: XTerm; fit: () => void } | null>(null);
+
+  useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const term = new XTerm({ theme, fontFamily: '"SF Mono", ui-monospace, Menlo, monospace', fontSize: 12, lineHeight: 1.25, cursorBlink: kind === "shell", scrollback: 5000, allowProposedApi: false });
+    const fitter = new FitAddon();
+    term.loadAddon(fitter);
+    term.open(el);
+
+    let alive = true;
+    let ready = false;
+    let seen = 0;
+    const queued: { data: string; end: number }[] = [];
+
+    const fit = () => {
+      if (!el.clientWidth || !el.clientHeight) return;
+      fitter.fit();
+      if (ready) window.simpleton.resizeTerminal(workspaceId, kind, term.cols, term.rows);
+    };
+
+    const off = window.simpleton.onTerminal((event) => {
+      if (event.workspaceId !== workspaceId || event.kind !== kind) return;
+      if (!ready) return void queued.push(event);
+      if (event.end > seen) term.write(event.data);
+      seen = Math.max(seen, event.end);
+    });
+
+    const input = term.onData((data) => window.simpleton.writeTerminal(workspaceId, kind, data));
+
+    fit();
+    window.simpleton.openTerminal(workspaceId, kind, term.cols, term.rows).then((snapshot) => {
+      if (!alive) return;
+      term.write(snapshot.buffer);
+      seen = snapshot.end;
+      ready = true;
+      for (const event of queued.splice(0)) {
+        if (event.end > seen) term.write(event.data);
+        seen = Math.max(seen, event.end);
+      }
+      fit();
+    });
+
+    const observer = new ResizeObserver(() => fit());
+    observer.observe(el);
+    handle.current = { term, fit };
+
+    return () => {
+      alive = false;
+      observer.disconnect();
+      input.dispose();
+      off();
+      term.dispose();
+      handle.current = null;
+    };
+  }, [workspaceId, kind]);
+
+  useEffect(() => {
+    if (!active || !handle.current) return;
+    handle.current.fit();
+    handle.current.term.focus();
+  }, [active]);
+
+  return <div ref={host} className="h-full w-full" />;
+}

@@ -23,7 +23,7 @@ export function App() {
       <Sidebar state={state} active={workspace ? active : "home"} onSelect={setActive} onNewTask={newTask} />
       <main className="min-w-0 flex-1 bg-white">
         {workspace ? (
-          <WorkspaceView key={workspace.id} workspace={workspace} repo={state.repos.find((r) => r.id === workspace.repoId)} onDeleted={() => setActive("home")} />
+          <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} />
         ) : (
           <div className="flex h-full flex-col">
             <div className="drag h-12 shrink-0" />

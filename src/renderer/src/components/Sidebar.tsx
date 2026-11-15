@@ -1,26 +1,39 @@
-import { FolderGit2, FolderPlus, House, Plus, X } from "lucide-react";
+import { FolderGit2, FolderPlus, House, Plus, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
-import type { AppState } from "@shared/types";
+import type { AppState, Workspace } from "@shared/types";
+import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { Dot } from "@/components/ui";
 import { cn, statuses } from "@/lib/utils";
 
 const row = "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13.5px]";
 
-function Item({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick: () => void }) {
+function Item({ children, active, onClick, className }: { children: ReactNode; active?: boolean; onClick: () => void; className?: string }) {
   return (
-    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn(row, active ? "bg-black/[0.07] font-medium" : "hover:bg-black/[0.04]")}>
+    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn(row, active ? "bg-black/[0.07] font-medium" : "hover:bg-black/[0.04]", className)}>
       {children}
     </button>
   );
 }
 
 export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppState; active: string; onSelect: (id: string) => void; onNewTask: (repoId: string) => void }) {
+  const { width, resize, reset } = useWidth(
+    "simpleton.width.left",
+    () => 260,
+    200,
+    () => 420,
+  );
+
+  const removeWorkspace = (w: Workspace) => {
+    if (confirm(`Delete ${w.branch}? The worktree and branch will be removed.`)) window.simpleton.removeWorkspace(w.id);
+  };
+
   const removeRepo = (id: string, name: string) => {
     if (confirm(`Remove ${name} and delete all of its workspaces?`)) window.simpleton.removeRepo(id);
   };
 
   return (
-    <aside className="flex w-[260px] shrink-0 flex-col border-r border-black/[0.06]">
+    <aside className="relative flex shrink-0 flex-col border-r border-black/[0.06]" style={{ width }}>
+      <ResizeHandle edge="right" width={width} onResize={resize} onReset={reset} />
       <div className="drag h-12 shrink-0" />
       <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2.5 pb-2.5">
         <Item active={active === "home"} onClick={() => onSelect("home")}>
@@ -46,11 +59,19 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
                 {state.workspaces
                   .filter((w) => w.repoId === repo.id)
                   .map((w) => (
-                    <li key={w.id}>
-                      <Item active={active === w.id} onClick={() => onSelect(w.id)}>
+                    <li key={w.id} className="group/ws relative">
+                      <Item active={active === w.id} onClick={() => onSelect(w.id)} className="group-hover/ws:pr-8">
                         <Dot className={statuses[w.status].dot} />
                         <span className={cn("min-w-0 flex-1 truncate", w.status === "merged" && "text-mute")}>{w.branch}</span>
                       </Item>
+                      <button
+                        type="button"
+                        onClick={() => removeWorkspace(w)}
+                        aria-label={`Delete ${w.branch}`}
+                        className="absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-black/[0.06] hover:text-minus group-hover/ws:grid"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     </li>
                   ))}
               </ul>

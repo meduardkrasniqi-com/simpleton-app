@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { copyFile, mkdir, readdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { app } from "electron";
 import type { NewWorkspace, Repo, Workspace } from "@shared/types";
+import * as agents from "./agents";
+import * as apps from "./apps";
 import * as git from "./git";
 import * as store from "./store";
 
@@ -34,6 +37,14 @@ async function uniqueBranch(repo: Repo, task: string) {
   }
 }
 
+async function copyEnvFiles(from: string, to: string) {
+  const entries = await readdir(from, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^\.env/.test(entry.name) || existsSync(join(to, entry.name))) continue;
+    await copyFile(join(from, entry.name), join(to, entry.name)).catch(() => undefined);
+  }
+}
+
 export async function addRepo(path: string) {
   if (!(await git.isRepo(path))) throw new Error(`${path} is not a git repository`);
   const top = await git.root(path);
@@ -59,8 +70,10 @@ export async function createWorkspace(input: NewWorkspace) {
   const path = join(worktreesDir(), repo.name, `${branch}-${id.slice(0, 6)}`);
   await mkdir(join(worktreesDir(), repo.name), { recursive: true });
   await git.addWorktree(repo.path, path, branch, base);
-  const workspace: Workspace = { id, repoId: repo.id, task: input.task.trim(), agent: input.agent, branch, base, path, status: "idle", createdAt: Date.now() };
+  await copyEnvFiles(repo.path, path);
+  const workspace: Workspace = { id, repoId: repo.id, task: input.task.trim(), agent: input.agent, branch, base, path, status: "working", createdAt: Date.now(), model: input.model || undefined, effort: input.effort || undefined };
   await store.update((s) => ({ ...s, workspaces: [...s.workspaces, workspace] }));
+  agents.send(id, workspace.task).catch(() => undefined);
   return workspace;
 }
 
@@ -68,17 +81,21 @@ export async function removeWorkspace(id: string) {
   const { repos, workspaces } = store.get();
   const workspace = workspaces.find((w) => w.id === id);
   if (!workspace) return;
+  await agents.forget(id);
+  await apps.forget(id);
   const repo = repos.find((r) => r.id === workspace.repoId);
   if (repo) await git.removeWorktree(repo.path, workspace.path, workspace.branch);
   await store.update((s) => ({ ...s, workspaces: s.workspaces.filter((w) => w.id !== id) }));
+}
+
+export async function file(id: string, path: string) {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  if (!workspace) throw new Error("Unknown workspace");
+  return git.fileView(workspace.path, workspace.base, path);
 }
 
 export async function changes(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace) return [];
   return git.changes(workspace.path, workspace.base);
-}
-
-export function find(id: string) {
-  return store.get().workspaces.find((w) => w.id === id);
 }

@@ -6,6 +6,8 @@ directories:
 files:
   - out/**
   - package.json
+asarUnpack:
+  - node_modules/node-pty/**
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
