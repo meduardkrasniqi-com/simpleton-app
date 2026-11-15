@@ -10,6 +10,7 @@
   --color-line: #ebebeb;
   --color-panel: #fafafa;
   --color-stage: #f4f4f5;
+  --color-sidebar: rgb(244 244 245 / 0.94);
   --color-ready: #16a34a;
   --color-busy: #f59e0b;
   --color-ask: #2563eb;
@@ -33,6 +34,7 @@
     --color-line: #2a2a2a;
     --color-panel: #1b1b1b;
     --color-stage: #262626;
+    --color-sidebar: rgb(26 26 26 / 0.96);
     --color-ready: #22c55e;
     --color-busy: #fbbf24;
     --color-ask: #60a5fa;

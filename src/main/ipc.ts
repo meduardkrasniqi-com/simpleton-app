@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
 import { channels, type AgentSettings, type NewWorkspace, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
+import * as auth from "./auth";
 import * as models from "./models";
 import * as pr from "./pr";
 import * as store from "./store";
@@ -10,6 +11,10 @@ import * as workspaces from "./workspaces";
 
 export function registerIpc() {
   ipcMain.handle(channels.state, () => store.get());
+  ipcMain.handle(channels.auth, () => auth.get());
+  ipcMain.handle(channels.login, () => auth.login());
+  ipcMain.handle(channels.cancelLogin, () => auth.cancel());
+  ipcMain.handle(channels.logout, () => auth.logout());
 
   ipcMain.handle(channels.addRepo, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
@@ -62,6 +67,10 @@ export function registerIpc() {
 
   store.subscribe((state) => {
     BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channels.stateChanged, state));
+  });
+
+  auth.subscribe((state) => {
+    BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channels.authChanged, state));
   });
 
   terminals.onData((event) => {

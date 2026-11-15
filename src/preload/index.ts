@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import { channels, type Api, type AppState, type EntryEvent, type TermData } from "@shared/types";
+import { channels, type Api, type AppState, type Auth, type EntryEvent, type TermData } from "@shared/types";
 
 const api: Api = {
   state: () => ipcRenderer.invoke(channels.state),
@@ -42,6 +42,15 @@ const api: Api = {
     ipcRenderer.on(channels.closeTab, handler);
     return () => ipcRenderer.removeListener(channels.closeTab, handler);
   },
+  auth: () => ipcRenderer.invoke(channels.auth),
+  onAuth: (listener) => {
+    const handler = (_event: IpcRendererEvent, auth: Auth) => listener(auth);
+    ipcRenderer.on(channels.authChanged, handler);
+    return () => ipcRenderer.removeListener(channels.authChanged, handler);
+  },
+  login: () => ipcRenderer.invoke(channels.login),
+  cancelLogin: () => ipcRenderer.invoke(channels.cancelLogin),
+  logout: () => ipcRenderer.invoke(channels.logout),
 };
 
 contextBridge.exposeInMainWorld("simpleton", api);

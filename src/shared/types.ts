@@ -104,6 +104,21 @@ export type AppState = {
   theme: Theme;
 };
 
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+};
+
+export type AuthStatus = "loading" | "signed-out" | "signing-in" | "signed-in";
+
+export type Auth = {
+  status: AuthStatus;
+  user: User | null;
+  error?: string;
+};
+
 export type NewWorkspace = {
   repoId: string;
   task: string;
@@ -137,6 +152,11 @@ export type Api = {
   startApp: (id: string) => Promise<void>;
   stopApp: (id: string) => Promise<void>;
   onCloseTab: (listener: () => void) => () => void;
+  auth: () => Promise<Auth>;
+  onAuth: (listener: (auth: Auth) => void) => () => void;
+  login: () => Promise<void>;
+  cancelLogin: () => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 export const channels = {
@@ -164,4 +184,9 @@ export const channels = {
   startApp: "app:start",
   stopApp: "app:stop",
   closeTab: "window:close-tab",
+  auth: "auth:get",
+  authChanged: "auth:changed",
+  login: "auth:login",
+  cancelLogin: "auth:cancel",
+  logout: "auth:logout",
 } as const;

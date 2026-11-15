@@ -6,6 +6,9 @@ directories:
 files:
   - out/**
   - package.json
+protocols:
+  - name: Simpleton
+    schemes: [simpleton]
 asarUnpack:
   - node_modules/node-pty/**
 mac:

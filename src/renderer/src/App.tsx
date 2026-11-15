@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { Home } from "@/components/Home";
+import { Login } from "@/components/Login";
 import { Sidebar } from "@/components/Sidebar";
 import { WorkspaceView } from "@/components/WorkspaceView";
 import { useAppState } from "@/lib/useAppState";
+import { useAuth } from "@/lib/useAuth";
 
 export function App() {
   const state = useAppState();
+  const auth = useAuth();
   const [active, setActive] = useState("home");
   const [repoId, setRepoId] = useState<string>();
 
-  if (!state) return null;
+  if (!state || !auth) return null;
+  if (auth.status === "loading") return <div className="drag h-full bg-surface" />;
+  if (auth.status !== "signed-in" || !auth.user) return <Login auth={auth} />;
 
   const workspace = state.workspaces.find((w) => w.id === active);
 
@@ -20,7 +25,7 @@ export function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar state={state} active={workspace ? active : "home"} onSelect={setActive} onNewTask={newTask} />
+      <Sidebar state={state} user={auth.user} active={workspace ? active : "home"} onSelect={setActive} onNewTask={newTask} />
       <main className="min-w-0 flex-1 bg-surface">
         {workspace ? (
           <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} />

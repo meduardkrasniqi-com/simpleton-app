@@ -1,6 +1,6 @@
-import { FolderGit2, FolderPlus, House, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
-import type { ReactNode } from "react";
-import type { AppState, Theme, Workspace } from "@shared/types";
+import { FolderGit2, FolderPlus, House, LogOut, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { AppState, Theme, User, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { Dot } from "@/components/ui";
 import { cn, statuses } from "@/lib/utils";
@@ -42,7 +42,55 @@ function ThemePicker({ value }: { value: Theme }) {
   );
 }
 
-export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppState; active: string; onSelect: (id: string) => void; onNewTask: (repoId: string) => void }) {
+function Avatar({ user }: { user: User }) {
+  const [failed, setFailed] = useState(false);
+  if (user.image && !failed) {
+    return <img src={user.image} alt="" onError={() => setFailed(true)} className="size-5 shrink-0 rounded-full bg-ink/[0.06]" />;
+  }
+  return <span className="grid size-5 shrink-0 place-items-center rounded-full bg-ink/[0.08] text-[11px] font-semibold text-soft">{(user.name || user.email).charAt(0).toUpperCase()}</span>;
+}
+
+function UserMenu({ user }: { user: User }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative mt-1">
+      {open && (
+        <div role="menu" className="absolute inset-x-0 bottom-full mb-1 rounded-lg border border-line bg-raised p-1 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+          <button type="button" role="menuitem" onClick={() => window.simpleton.logout()} className={cn(row, "hover:bg-ink/[0.05]")}>
+            <LogOut className="size-4 text-mute" />
+            Sign out
+          </button>
+        </div>
+      )}
+      <Item onClick={() => setOpen((o) => !o)} active={open} className="min-w-0">
+        <Avatar user={user} />
+        <span className="min-w-0 flex-1 truncate" title={user.email}>
+          {user.name || user.email}
+        </span>
+      </Item>
+    </div>
+  );
+}
+
+export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: AppState; user: User; active: string; onSelect: (id: string) => void; onNewTask: (repoId: string) => void }) {
   const { width, resize, reset } = useWidth(
     "simpleton.width.left",
     () => 260,
@@ -59,7 +107,7 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
   };
 
   return (
-    <aside className="relative flex shrink-0 flex-col border-r border-ink/[0.06]" style={{ width }}>
+    <aside className="relative flex shrink-0 flex-col border-r border-ink/[0.06] bg-sidebar" style={{ width }}>
       <ResizeHandle edge="right" width={width} onResize={resize} onReset={reset} />
       <div className="drag h-12 shrink-0" />
       <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2.5 pb-2.5">
@@ -112,6 +160,7 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
           </Item>
           <ThemePicker value={state.theme} />
         </div>
+        <UserMenu user={user} />
       </nav>
     </aside>
   );
