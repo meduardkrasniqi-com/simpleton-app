@@ -94,6 +94,12 @@ export async function file(id: string, path: string) {
   return git.fileView(workspace.path, workspace.base, path);
 }
 
+export async function files(id: string) {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  if (!workspace) return [];
+  return git.listFiles(workspace.path);
+}
+
 export async function changes(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace) return [];

@@ -21,7 +21,7 @@ export function App() {
   return (
     <div className="flex h-full">
       <Sidebar state={state} active={workspace ? active : "home"} onSelect={setActive} onNewTask={newTask} />
-      <main className="min-w-0 flex-1 bg-white">
+      <main className="min-w-0 flex-1 bg-surface">
         {workspace ? (
           <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} />
         ) : (

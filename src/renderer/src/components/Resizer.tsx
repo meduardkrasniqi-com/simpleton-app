@@ -62,7 +62,7 @@ export function ResizeHandle({ edge, width, onResize, onReset }: { edge: "left" 
 
   return (
     <div role="separator" aria-orientation="vertical" aria-label="Resize sidebar" onPointerDown={start} onDoubleClick={onReset} className={cn("no-drag group absolute inset-y-0 z-20 w-2 cursor-col-resize", edge === "right" ? "-right-1" : "-left-1")}>
-      <div className={cn("mx-auto h-full w-[2px] transition-colors", dragging ? "bg-black/20" : "group-hover:bg-black/10")} />
+      <div className={cn("mx-auto h-full w-[2px] transition-colors", dragging ? "bg-ink/20" : "group-hover:bg-ink/10")} />
     </div>
   );
 }

@@ -15,6 +15,8 @@ const api: Api = {
   changes: (id) => ipcRenderer.invoke(channels.changes, id),
   createPr: (id) => ipcRenderer.invoke(channels.createPr, id),
   file: (id, path) => ipcRenderer.invoke(channels.file, id, path),
+  files: (id) => ipcRenderer.invoke(channels.files, id),
+  setTheme: (theme) => ipcRenderer.invoke(channels.setTheme, theme),
   models: () => ipcRenderer.invoke(channels.models),
   configure: (id, settings) => ipcRenderer.invoke(channels.configure, id, settings),
   transcript: (id) => ipcRenderer.invoke(channels.transcript, id),
@@ -35,6 +37,11 @@ const api: Api = {
   },
   startApp: (id) => ipcRenderer.invoke(channels.startApp, id),
   stopApp: (id) => ipcRenderer.invoke(channels.stopApp, id),
+  onCloseTab: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on(channels.closeTab, handler);
+    return () => ipcRenderer.removeListener(channels.closeTab, handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("simpleton", api);

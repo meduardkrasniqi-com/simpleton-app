@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { app, BrowserWindow, nativeTheme, shell } from "electron";
 import * as agents from "./agents";
 import { registerIpc } from "./ipc";
+import { setMenu } from "./menu";
 import * as terminals from "./terminals";
 import * as store from "./store";
 
@@ -51,10 +52,10 @@ app.whenReady().then(async () => {
   if (!app.isPackaged && process.platform === "darwin") {
     app.dock?.setIcon(join(__dirname, "../../build/icon.png"));
   }
-  nativeTheme.themeSource = "light";
-  await store.load();
+  nativeTheme.themeSource = (await store.load()).theme;
   await agents.recover();
   registerIpc();
+  setMenu();
   createWindow();
 
   app.on("activate", () => {

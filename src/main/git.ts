@@ -107,6 +107,12 @@ function parse(diff: string): FileView {
   return { binary: false, truncated: false, lines };
 }
 
+export async function listFiles(worktree: string) {
+  const { stdout } = await exec("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 });
+  const deleted = new Set((await git(worktree, ["ls-files", "-z", "--deleted"])).split("\0"));
+  return [...new Set(stdout.split("\0"))].filter((path) => path && !deleted.has(path));
+}
+
 export async function fileView(worktree: string, base: string, path: string): Promise<FileView> {
   const full = resolve(worktree, path);
   if (!full.startsWith(worktree + sep)) throw new Error("Path is outside the workspace");

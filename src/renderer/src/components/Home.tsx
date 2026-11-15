@@ -40,7 +40,7 @@ export function Home({ state, repoId, onOpen }: { state: AppState; repoId?: stri
                   {statuses[status].label}
                   <span className="font-normal text-mute">{items.length}</span>
                 </p>
-                <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+                <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line bg-raised">
                   {items.map((w) => (
                     <li key={w.id}>
                       <button type="button" onClick={() => onOpen(w.id)} className="group flex w-full items-center gap-3 py-2 pl-3.5 pr-3 text-left hover:bg-panel">
@@ -53,7 +53,7 @@ export function Home({ state, repoId, onOpen }: { state: AppState; repoId?: stri
                             {agents[w.agent]} · {w.task}
                           </p>
                         </div>
-                        <ChevronRight className="size-4 text-black/25 group-hover:text-mute" />
+                        <ChevronRight className="size-4 text-ink/25 group-hover:text-mute" />
                       </button>
                     </li>
                   ))}

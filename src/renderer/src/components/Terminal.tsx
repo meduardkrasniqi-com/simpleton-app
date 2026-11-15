@@ -3,8 +3,9 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef } from "react";
 import type { TermKind } from "@shared/types";
+import { isDark, onSchemeChange } from "@/lib/useDark";
 
-const theme = {
+const light = {
   background: "#ffffff",
   foreground: "#0a0a0a",
   cursor: "#0a0a0a",
@@ -28,6 +29,30 @@ const theme = {
   brightWhite: "#8c959f",
 };
 
+const dark = {
+  background: "#161616",
+  foreground: "#ededed",
+  cursor: "#ededed",
+  cursorAccent: "#161616",
+  selectionBackground: "rgba(237, 237, 237, 0.2)",
+  black: "#484f58",
+  red: "#ff7b72",
+  green: "#3fb950",
+  yellow: "#d29922",
+  blue: "#58a6ff",
+  magenta: "#bc8cff",
+  cyan: "#39c5cf",
+  white: "#b1bac4",
+  brightBlack: "#6e7681",
+  brightRed: "#ffa198",
+  brightGreen: "#56d364",
+  brightYellow: "#e3b341",
+  brightBlue: "#79c0ff",
+  brightMagenta: "#d2a8ff",
+  brightCyan: "#56d4dd",
+  brightWhite: "#f0f6fc",
+};
+
 export function Terminal({ workspaceId, kind, active }: { workspaceId: string; kind: TermKind; active: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const handle = useRef<{ term: XTerm; fit: () => void } | null>(null);
@@ -35,7 +60,7 @@ export function Terminal({ workspaceId, kind, active }: { workspaceId: string; k
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    const term = new XTerm({ theme, fontFamily: '"SF Mono", ui-monospace, Menlo, monospace', fontSize: 12, lineHeight: 1.25, cursorBlink: kind === "shell", scrollback: 5000, allowProposedApi: false });
+    const term = new XTerm({ theme: isDark() ? dark : light, fontFamily: '"SF Mono", ui-monospace, Menlo, monospace', fontSize: 12, lineHeight: 1.25, cursorBlink: kind === "shell", scrollback: 5000, allowProposedApi: false });
     const fitter = new FitAddon();
     term.loadAddon(fitter);
     term.open(el);
@@ -73,12 +98,14 @@ export function Terminal({ workspaceId, kind, active }: { workspaceId: string; k
       fit();
     });
 
+    const scheme = onSchemeChange((value) => (term.options.theme = value ? dark : light));
     const observer = new ResizeObserver(() => fit());
     observer.observe(el);
     handle.current = { term, fit };
 
     return () => {
       alive = false;
+      scheme();
       observer.disconnect();
       input.dispose();
       off();

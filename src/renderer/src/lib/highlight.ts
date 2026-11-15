@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { HighlighterCore, ThemedToken } from "shiki/core";
 import { bundledLanguages, bundledLanguagesInfo } from "shiki/langs";
 
-export type Token = Pick<ThemedToken, "content" | "color" | "fontStyle">;
+export type Token = Pick<ThemedToken, "content" | "htmlStyle">;
 
-const theme = "github-light";
+const themes = { light: "github-light", dark: "github-dark-default" };
 const maxLines = 6000;
 
 const names: Record<string, string> = {
@@ -38,8 +38,8 @@ const extensions: Record<string, string> = {
 let core: Promise<HighlighterCore> | null = null;
 
 function highlighter() {
-  core ??= Promise.all([import("shiki/core"), import("shiki/engine/javascript"), import("shiki/themes/github-light.mjs")]).then(([{ createHighlighterCore }, { createJavaScriptRegexEngine }, light]) =>
-    createHighlighterCore({ themes: [light.default], langs: [], engine: createJavaScriptRegexEngine({ forgiving: true }) }),
+  core ??= Promise.all([import("shiki/core"), import("shiki/engine/javascript"), import("shiki/themes/github-light.mjs"), import("shiki/themes/github-dark-default.mjs")]).then(
+    ([{ createHighlighterCore }, { createJavaScriptRegexEngine }, light, dark]) => createHighlighterCore({ themes: [light.default, dark.default], langs: [], engine: createJavaScriptRegexEngine({ forgiving: true }) }),
   );
   return core;
 }
@@ -74,7 +74,7 @@ export async function tokenize(code: string, language: string | null): Promise<T
     const id = known(language);
     if (!id) return null;
     if (!h.getLoadedLanguages().includes(id)) await h.loadLanguage(bundledLanguages[id as keyof typeof bundledLanguages]);
-    return h.codeToTokens(code, { lang: id, theme }).tokens;
+    return h.codeToTokens(code, { lang: id, themes, defaultColor: false }).tokens;
   } catch {
     return null;
   }
@@ -94,8 +94,5 @@ export function useTokens(code: string, language: string | null) {
 }
 
 export function tokenStyle(token: Token) {
-  const style: { color?: string; fontStyle?: string; fontWeight?: number } = { color: token.color };
-  if (token.fontStyle && token.fontStyle & 1) style.fontStyle = "italic";
-  if (token.fontStyle && token.fontStyle & 2) style.fontWeight = 600;
-  return style;
+  return token.htmlStyle as CSSProperties | undefined;
 }

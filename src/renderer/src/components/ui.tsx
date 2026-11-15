@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 
 const button = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[8px] font-medium transition-colors active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40";
 
-export const primary = cn(button, "bg-ink text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(0,0,0,0.16)] hover:bg-[#262626]");
+export const primary = cn(button, "bg-ink text-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(0,0,0,0.16)] hover:bg-ink/85");
 
-export const outline = cn(button, "border border-black/[0.09] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:border-black/[0.14] hover:bg-[#f7f7f7]");
+export const outline = cn(button, "border border-ink/[0.09] bg-raised shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:border-ink/[0.14] hover:bg-raised-hover");
 
-export const ghost = cn(button, "text-soft hover:bg-black/[0.05] hover:text-ink");
+export const ghost = cn(button, "text-soft hover:bg-ink/[0.05] hover:text-ink");
 
 export function Stat({ added, removed, className }: { added: number; removed: number; className?: string }) {
   return (
@@ -42,7 +42,7 @@ export function Mark({ size = 24 }: { size?: number }) {
   );
 }
 
-const chip = "relative inline-flex h-7 items-center rounded-md border border-line bg-white text-[12.5px] font-medium text-soft hover:border-black/[0.14]";
+const chip = "relative inline-flex h-7 items-center rounded-md border border-line bg-raised text-[12.5px] font-medium text-soft hover:border-ink/[0.14]";
 
 export function Select<T extends string>({ value, onChange, options }: { value: T; onChange: (value: T) => void; options: { value: T; label: string }[] }) {
   return (

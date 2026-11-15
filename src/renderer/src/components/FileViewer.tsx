@@ -89,12 +89,12 @@ export function FileViewer({ workspaceId, path, version }: { workspaceId: string
             <tbody>
               {view.lines.map((line, i) => (
                 <tr key={i} className={rowStyles[line.kind]} data-change={line.kind === "add" || line.kind === "del" ? "" : undefined}>
-                  <td className="w-12 min-w-12 select-none pr-3 text-right align-top text-black/25">{line.kind === "gap" ? "⋯" : line.n}</td>
+                  <td className="w-12 min-w-12 select-none pr-3 text-right align-top text-ink/25">{line.kind === "gap" ? "⋯" : line.n}</td>
                   <td className={cn("w-4 select-none text-center align-top", line.kind === "add" ? "text-plus" : "text-minus")}>{signs[line.kind]}</td>
                   <td className="whitespace-pre pr-6">
                     {tokens?.[i] && tokens[i]!.length > 0
                       ? tokens[i]!.map((token, k) => (
-                          <span key={k} style={tokenStyle(token)}>
+                          <span key={k} className="tk" style={tokenStyle(token)}>
                             {token.content}
                           </span>
                         ))

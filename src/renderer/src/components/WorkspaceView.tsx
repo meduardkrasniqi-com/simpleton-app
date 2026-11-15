@@ -1,12 +1,14 @@
 import { ArrowUp, Bot, CircleAlert, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { Entry, FileChange, Preview, TermKind, Workspace } from "@shared/types";
+import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
 import { Markdown } from "@/components/Markdown";
 import { ModelPicker } from "@/components/ModelPicker";
 import { WorkspaceSide } from "@/components/WorkspaceSide";
 import { Terminal as TerminalView } from "@/components/Terminal";
 import { Dot, ghost } from "@/components/ui";
+import { FileLinksContext, resolver } from "@/lib/fileLinks";
 import { useTranscript } from "@/lib/useTranscript";
 import { agents, cn, statuses } from "@/lib/utils";
 
@@ -36,7 +38,7 @@ function Tool({ entry, onOpen }: { entry: Extract<Entry, { kind: "tool" }>; onOp
       <span className="shrink-0 font-medium text-soft">{entry.verb}</span>
       {entry.target &&
         (openable(entry) ? (
-          <button type="button" onClick={() => onOpen(entry.target)} className="min-w-0 truncate font-mono text-[12px] text-mute underline decoration-transparent underline-offset-2 hover:text-ink hover:decoration-black/30" title={entry.target}>
+          <button type="button" onClick={() => onOpen(entry.target)} className="min-w-0 truncate font-mono text-[12px] text-mute underline decoration-transparent underline-offset-2 hover:text-ink hover:decoration-ink/30" title={entry.target}>
             {entry.target}
           </button>
         ) : (
@@ -103,7 +105,7 @@ function FollowUp({ workspace, initial }: { workspace: Workspace; initial: strin
   };
 
   return (
-    <div className="rounded-xl border border-black/[0.1] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-black/[0.2]">
+    <div className="rounded-xl border border-ink/[0.1] bg-raised p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-ink/[0.2]">
       <textarea
         ref={input}
         value={text}
@@ -117,11 +119,11 @@ function FollowUp({ workspace, initial }: { workspace: Workspace; initial: strin
         <ModelPicker agent={workspace.agent} value={{ model: workspace.model, effort: workspace.effort }} onChange={(settings) => window.simpleton.configure(workspace.id, settings)} />
         <span className="ml-auto" />
         {working ? (
-          <button type="button" onClick={() => window.simpleton.stop(workspace.id)} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-md bg-ink text-white">
+          <button type="button" onClick={() => window.simpleton.stop(workspace.id)} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface">
             <Square className="size-3 fill-current" />
           </button>
         ) : (
-          <button type="button" onClick={submit} disabled={!text.trim()} aria-label="Send" className={cn("grid size-7 shrink-0 place-items-center rounded-md bg-ink text-white transition-opacity", !text.trim() && "opacity-30")}>
+          <button type="button" onClick={submit} disabled={!text.trim()} aria-label="Send" className={cn("grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface transition-opacity", !text.trim() && "opacity-30")}>
             <ArrowUp className="size-4" />
           </button>
         )}
@@ -166,7 +168,7 @@ function Tab({ active, title, onSelect, onClose, children }: { active: boolean; 
       title={title}
       onClick={onSelect}
       onAuxClick={(e) => e.button === 1 && onClose?.()}
-      className={cn("no-drag group flex h-7 shrink-0 cursor-default items-center gap-1.5 rounded-md text-[12.5px]", onClose ? "pl-2.5 pr-1" : "px-2.5", active ? "bg-black/[0.06] font-medium text-ink" : "text-soft hover:bg-black/[0.04]")}
+      className={cn("no-drag group flex h-7 shrink-0 cursor-default items-center gap-1.5 rounded-md text-[12.5px]", onClose ? "pl-2.5 pr-1" : "px-2.5", active ? "bg-ink/[0.06] font-medium text-ink" : "text-soft hover:bg-ink/[0.04]")}
     >
       {children}
       {onClose && (
@@ -177,7 +179,7 @@ function Tab({ active, title, onSelect, onClose, children }: { active: boolean; 
             e.stopPropagation();
             onClose();
           }}
-          className={cn("grid size-4 place-items-center rounded hover:bg-black/[0.08]", active ? "visible" : "invisible group-hover:visible")}
+          className={cn("grid size-4 place-items-center rounded hover:bg-ink/[0.08]", active ? "visible" : "invisible group-hover:visible")}
         >
           <X className="size-3" />
         </button>
@@ -211,6 +213,36 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
       const active = t.active !== path ? t.active : (files[Math.min(index, files.length - 1)] ?? "chat");
       return { files, active };
     });
+  const [searching, setSearching] = useState(false);
+  const searchingRef = useRef(searching);
+  searchingRef.current = searching;
+
+  useEffect(
+    () =>
+      window.simpleton.onCloseTab(() => {
+        if (searchingRef.current) return setSearching(false);
+        setTabs((t) => {
+          if (t.active === "chat") return t;
+          const index = t.files.indexOf(t.active);
+          const files = t.files.filter((f) => f !== t.active);
+          return { files, active: files[Math.min(index, files.length - 1)] ?? "chat" };
+        });
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        e.stopPropagation();
+        setSearching((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   const [panel, setPanelState] = useState<Panel>(() => panels.get(workspace.id) ?? { open: false, tab: "shell", height: 260, shell: false });
 
   const setPanel = (change: Partial<Panel>) =>
@@ -274,6 +306,27 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
+  const [tree, setTree] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      window.simpleton
+        .files(workspace.id)
+        .then((f) => alive && setTree(f))
+        .catch(() => undefined);
+    const timer = setTimeout(load, 300);
+    window.addEventListener("focus", load);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+      window.removeEventListener("focus", load);
+    };
+  }, [workspace.id, settled]);
+
+  const openRef = useRef(openFile);
+  openRef.current = openFile;
+  const links = useMemo(() => ({ resolve: resolver(workspace.path, tree), open: (path: string) => openRef.current(path) }), [workspace.path, tree]);
+
   const last = entries?.[entries.length - 1];
   const thinking = workspace.status === "working" && !(last?.kind === "tool" && last.state === "running");
 
@@ -292,11 +345,16 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
               </Tab>
             ))}
           </div>
-          {!side && (
-            <button type="button" onClick={() => setSide(true)} aria-label="Show sidebar" className={cn(ghost, "size-7 shrink-0")}>
-              <PanelRight className="size-4" />
+          <div className="flex shrink-0 items-center gap-1">
+            <button type="button" onClick={() => setSearching(true)} aria-label="Search files" title="Search files  ⌘P" className={cn(ghost, "size-7")}>
+              <Search className="size-4" />
             </button>
-          )}
+            {!side && (
+              <button type="button" onClick={() => setSide(true)} aria-label="Show sidebar" className={cn(ghost, "size-7")}>
+                <PanelRight className="size-4" />
+              </button>
+            )}
+          </div>
         </header>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {tabs.active !== "chat" && (
@@ -304,21 +362,23 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
               <FileViewer key={tabs.active} workspaceId={workspace.id} path={tabs.active} version={settled} />
             </div>
           )}
-          <div className={cn("flex min-h-0 flex-1 flex-col", tabs.active !== "chat" && "hidden")}>
-            <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
-              <div className="mx-auto max-w-[720px]">
-                {entries?.map((entry, i) => (
-                  <div key={entry.id} className={gap(entries[i - 1], entry)}>
-                    <Row entry={entry} onOpen={openFile} />
-                  </div>
-                ))}
-                {thinking && <LoaderCircle className={cn("size-3.5 animate-spin text-mute", entries?.length ? "mt-4" : "")} />}
+          <FileLinksContext.Provider value={links}>
+            <div className={cn("flex min-h-0 flex-1 flex-col", tabs.active !== "chat" && "hidden")}>
+              <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
+                <div className="mx-auto max-w-[720px]">
+                  {entries?.map((entry, i) => (
+                    <div key={entry.id} className={gap(entries[i - 1], entry)}>
+                      <Row entry={entry} onOpen={openFile} />
+                    </div>
+                  ))}
+                  {thinking && <LoaderCircle className={cn("size-3.5 animate-spin text-mute", entries?.length ? "mt-4" : "")} />}
+                </div>
+              </div>
+              <div className="shrink-0 px-8 pb-5">
+                <div className="mx-auto max-w-[720px]">{entries && <FollowUp workspace={workspace} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
               </div>
             </div>
-            <div className="shrink-0 px-8 pb-5">
-              <div className="mx-auto max-w-[720px]">{entries && <FollowUp workspace={workspace} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
-            </div>
-          </div>
+          </FileLinksContext.Provider>
           {panel.open && (
             <div className="flex shrink-0 flex-col border-t border-line" style={{ height: panel.height }}>
               <div onPointerDown={startResize} className="-mt-[3px] h-[5px] shrink-0 cursor-row-resize" />
@@ -326,7 +386,7 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
                 {(["shell", "app"] as const)
                   .filter((kind) => kind === "shell" || preview)
                   .map((kind) => (
-                    <button key={kind} type="button" onClick={() => setPanel({ tab: kind })} className={cn("h-6 rounded-md px-2 text-[12px] font-medium", panel.tab === kind ? "bg-black/[0.06] text-ink" : "text-mute hover:text-ink")}>
+                    <button key={kind} type="button" onClick={() => setPanel({ tab: kind })} className={cn("h-6 rounded-md px-2 text-[12px] font-medium", panel.tab === kind ? "bg-ink/[0.06] text-ink" : "text-mute hover:text-ink")}>
                       {kind === "shell" ? "Terminal" : "App"}
                     </button>
                   ))}
@@ -347,6 +407,7 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
           )}
         </div>
       </div>
+      {searching && <FileSearch workspaceId={workspace.id} onOpen={openFile} onClose={() => setSearching(false)} />}
       {side && (
         <WorkspaceSide
           workspace={workspace}

@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 @theme {
+  --color-surface: #ffffff;
+  --color-raised: #ffffff;
+  --color-raised-hover: #f7f7f7;
   --color-ink: #0a0a0a;
   --color-soft: #525252;
   --color-mute: #737373;
@@ -16,6 +19,42 @@
   --color-minus: #dc2626;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-surface: #161616;
+    --color-raised: #1f1f1f;
+    --color-raised-hover: #262626;
+    --color-ink: #ededed;
+    --color-soft: #a8a8a8;
+    --color-mute: #8a8a8a;
+    --color-line: #2a2a2a;
+    --color-panel: #1b1b1b;
+    --color-stage: #262626;
+    --color-ready: #22c55e;
+    --color-busy: #fbbf24;
+    --color-ask: #60a5fa;
+    --color-done: #737373;
+    --color-idle: #525252;
+    --color-plus: #4ade80;
+    --color-minus: #f87171;
+  }
+}
+
+.tk {
+  color: var(--shiki-light);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tk {
+    color: var(--shiki-dark);
+    font-style: var(--shiki-dark-font-style);
+    font-weight: var(--shiki-dark-font-weight);
+  }
 }
 
 html,
@@ -52,6 +91,6 @@ textarea,
 }
 
 ::selection {
-  background: #0a0a0a;
-  color: #ffffff;
+  background: var(--color-ink);
+  color: var(--color-surface);
 }

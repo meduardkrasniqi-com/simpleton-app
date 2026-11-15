@@ -1,6 +1,6 @@
-import { FolderGit2, FolderPlus, House, Plus, Trash2, X } from "lucide-react";
+import { FolderGit2, FolderPlus, House, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
-import type { AppState, Workspace } from "@shared/types";
+import type { AppState, Theme, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { Dot } from "@/components/ui";
 import { cn, statuses } from "@/lib/utils";
@@ -9,9 +9,36 @@ const row = "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text
 
 function Item({ children, active, onClick, className }: { children: ReactNode; active?: boolean; onClick: () => void; className?: string }) {
   return (
-    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn(row, active ? "bg-black/[0.07] font-medium" : "hover:bg-black/[0.04]", className)}>
+    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn(row, active ? "bg-ink/[0.07] font-medium" : "hover:bg-ink/[0.04]", className)}>
       {children}
     </button>
+  );
+}
+
+const themes = [
+  { value: "system", label: "System", icon: Monitor },
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+] as const;
+
+function ThemePicker({ value }: { value: Theme }) {
+  return (
+    <div role="radiogroup" aria-label="Theme" className="flex shrink-0 items-center rounded-md bg-ink/[0.05] p-0.5">
+      {themes.map(({ value: option, label, icon: Icon }) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          aria-checked={value === option}
+          aria-label={label}
+          title={label}
+          onClick={() => window.simpleton.setTheme(option)}
+          className={cn("grid size-6 place-items-center rounded-[5px] transition-colors", value === option ? "bg-raised text-ink shadow-[0_1px_2px_rgba(0,0,0,0.12)]" : "text-mute hover:text-ink")}
+        >
+          <Icon className="size-3.5" />
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -32,7 +59,7 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
   };
 
   return (
-    <aside className="relative flex shrink-0 flex-col border-r border-black/[0.06]" style={{ width }}>
+    <aside className="relative flex shrink-0 flex-col border-r border-ink/[0.06]" style={{ width }}>
       <ResizeHandle edge="right" width={width} onResize={resize} onReset={reset} />
       <div className="drag h-12 shrink-0" />
       <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2.5 pb-2.5">
@@ -48,10 +75,10 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
                 <span className="min-w-0 flex-1 truncate" title={repo.path}>
                   {repo.name}
                 </span>
-                <button type="button" onClick={() => removeRepo(repo.id, repo.name)} aria-label={`Remove ${repo.name}`} className="hidden size-6 place-items-center rounded hover:bg-black/[0.06] group-hover/repo:grid">
+                <button type="button" onClick={() => removeRepo(repo.id, repo.name)} aria-label={`Remove ${repo.name}`} className="hidden size-6 place-items-center rounded hover:bg-ink/[0.06] group-hover/repo:grid">
                   <X className="size-3.5" />
                 </button>
-                <button type="button" onClick={() => onNewTask(repo.id)} aria-label={`New task in ${repo.name}`} className="grid size-6 place-items-center rounded hover:bg-black/[0.06]">
+                <button type="button" onClick={() => onNewTask(repo.id)} aria-label={`New task in ${repo.name}`} className="grid size-6 place-items-center rounded hover:bg-ink/[0.06]">
                   <Plus className="size-3.5" />
                 </button>
               </div>
@@ -68,7 +95,7 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
                         type="button"
                         onClick={() => removeWorkspace(w)}
                         aria-label={`Delete ${w.branch}`}
-                        className="absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-black/[0.06] hover:text-minus group-hover/ws:grid"
+                        className="absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-ink/[0.06] hover:text-minus group-hover/ws:grid"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -78,11 +105,12 @@ export function Sidebar({ state, active, onSelect, onNewTask }: { state: AppStat
             </div>
           ))}
         </div>
-        <div className="mt-auto pt-4">
-          <Item onClick={() => window.simpleton.addRepo()}>
-            <FolderPlus className="size-4 text-mute" />
-            Add repository
+        <div className="mt-auto flex items-center gap-2 pt-4">
+          <Item onClick={() => window.simpleton.addRepo()} className="min-w-0 flex-1">
+            <FolderPlus className="size-4 shrink-0 text-mute" />
+            <span className="truncate">Add repository</span>
           </Item>
+          <ThemePicker value={state.theme} />
         </div>
       </nav>
     </aside>

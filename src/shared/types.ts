@@ -95,10 +95,13 @@ export type Preview = {
   url: string;
 };
 
+export type Theme = "system" | "light" | "dark";
+
 export type AppState = {
   repos: Repo[];
   workspaces: Workspace[];
   previews: Record<string, Preview>;
+  theme: Theme;
 };
 
 export type NewWorkspace = {
@@ -119,6 +122,8 @@ export type Api = {
   changes: (id: string) => Promise<FileChange[]>;
   createPr: (id: string) => Promise<PrResult | null>;
   file: (id: string, path: string) => Promise<FileView>;
+  files: (id: string) => Promise<string[]>;
+  setTheme: (theme: Theme) => Promise<void>;
   models: () => Promise<ModelCatalog>;
   configure: (id: string, settings: AgentSettings) => Promise<void>;
   transcript: (id: string) => Promise<Entry[]>;
@@ -131,6 +136,7 @@ export type Api = {
   onTerminal: (listener: (event: TermData) => void) => () => void;
   startApp: (id: string) => Promise<void>;
   stopApp: (id: string) => Promise<void>;
+  onCloseTab: (listener: () => void) => () => void;
 };
 
 export const channels = {
@@ -143,6 +149,8 @@ export const channels = {
   changes: "workspace:changes",
   createPr: "workspace:pr",
   file: "workspace:file",
+  files: "workspace:files",
+  setTheme: "app:theme",
   models: "agent:models",
   configure: "agent:configure",
   transcript: "agent:transcript",
@@ -155,4 +163,5 @@ export const channels = {
   terminalData: "terminal:data",
   startApp: "app:start",
   stopApp: "app:stop",
+  closeTab: "window:close-tab",
 } as const;

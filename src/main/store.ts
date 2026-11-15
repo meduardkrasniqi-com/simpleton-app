@@ -7,15 +7,15 @@ type Listener = (state: AppState) => void;
 
 const file = () => join(app.getPath("userData"), "state.json");
 
-let state: AppState = { repos: [], workspaces: [], previews: {} };
+let state: AppState = { repos: [], workspaces: [], previews: {}, theme: "system" };
 const listeners = new Set<Listener>();
 
 export async function load() {
   try {
     const parsed = JSON.parse(await readFile(file(), "utf8")) as Partial<AppState>;
-    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], previews: {} };
+    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], previews: {}, theme: parsed.theme ?? "system" };
   } catch {
-    state = { repos: [], workspaces: [], previews: {} };
+    state = { repos: [], workspaces: [], previews: {}, theme: "system" };
   }
   return state;
 }

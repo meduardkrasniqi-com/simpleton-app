@@ -52,7 +52,7 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
 
   return (
     <div>
-      <div className="rounded-xl border border-black/[0.1] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-black/[0.2]">
+      <div className="rounded-xl border border-ink/[0.1] bg-raised p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-ink/[0.2]">
         <textarea
           ref={input}
           value={task}
@@ -66,7 +66,13 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
           <Select value={repo} onChange={setRepo} options={repos.map((r) => ({ value: r.id, label: r.name }))} />
           <Select value={agent} onChange={setAgent} options={(Object.keys(agents) as Agent[]).map((a) => ({ value: a, label: agents[a] }))} />
           <ModelPicker agent={agent} value={settings} onChange={setSettings} />
-          <button type="button" onClick={submit} disabled={!task.trim() || busy} aria-label="Start task" className={cn("ml-auto grid size-7 place-items-center rounded-md bg-ink text-white transition-opacity", (!task.trim() || busy) && "opacity-30")}>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!task.trim() || busy}
+            aria-label="Start task"
+            className={cn("ml-auto grid size-7 place-items-center rounded-md bg-ink text-surface transition-opacity", (!task.trim() || busy) && "opacity-30")}
+          >
             <ArrowUp className="size-4" />
           </button>
         </div>

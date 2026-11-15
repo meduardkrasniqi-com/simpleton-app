@@ -75,7 +75,7 @@ function PrButton({ workspace }: { workspace: Workspace }) {
 function LinkRow({ icon, label, detail, trailing, muted, onClick, disabled, children }: { icon: ReactNode; label: string; detail?: string; trailing?: ReactNode; muted?: boolean; onClick: () => void; disabled?: boolean; children?: ReactNode }) {
   return (
     <div className="group relative -mx-2">
-      <button type="button" onClick={onClick} disabled={disabled} className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[12.5px] hover:bg-black/[0.04] disabled:hover:bg-transparent")}>
+      <button type="button" onClick={onClick} disabled={disabled} className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[12.5px] hover:bg-ink/[0.04] disabled:hover:bg-transparent")}>
         <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
         <span className={cn("shrink-0 font-medium", muted && "font-normal text-mute group-hover:text-ink")}>{label}</span>
         {detail && <span className="min-w-0 truncate font-mono text-[12px] text-mute">{detail}</span>}
@@ -174,7 +174,7 @@ function Links({ workspace, preview, share, setShare }: { workspace: Workspace; 
             onClick={() => setShare("off")}
             aria-label="Stop sharing"
             title="Stop sharing"
-            className="absolute right-8 top-1.5 hidden size-5 place-items-center rounded bg-[#f5f5f5] text-mute hover:bg-[#ebebeb] hover:text-minus group-hover:grid"
+            className="absolute right-8 top-1.5 hidden size-5 place-items-center rounded bg-[color-mix(in_oklab,var(--color-ink)_4%,var(--color-surface))] text-mute hover:bg-[color-mix(in_oklab,var(--color-ink)_9%,var(--color-surface))] hover:text-minus group-hover:grid"
           >
             <X className="size-3.5" />
           </button>
@@ -231,7 +231,7 @@ export function WorkspaceSide({
           <PanelRight className="size-4" />
         </button>
         <div className="ml-auto flex items-center gap-1.5">
-          <button type="button" onClick={onToggleTerminal} aria-pressed={terminalOpen} className={cn(ghost, "h-7 px-2 text-[12.5px]", terminalOpen && "bg-black/[0.06] text-ink")}>
+          <button type="button" onClick={onToggleTerminal} aria-pressed={terminalOpen} className={cn(ghost, "h-7 px-2 text-[12.5px]", terminalOpen && "bg-ink/[0.06] text-ink")}>
             <SquareTerminal className="size-3.5" />
             Terminal
           </button>
@@ -270,7 +270,7 @@ export function WorkspaceSide({
           <ul>
             {files.map((f) => (
               <li key={f.path}>
-                <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left", activeFile === f.path ? "bg-black/[0.06]" : "hover:bg-black/[0.04]")}>
+                <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
                   <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{f.path}</span>
                   <Stat added={f.added} removed={f.removed} className="text-[11.5px]" />
                 </button>

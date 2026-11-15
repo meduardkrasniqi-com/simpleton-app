@@ -1,5 +1,5 @@
-import { BrowserWindow, dialog, ipcMain } from "electron";
-import { channels, type AgentSettings, type NewWorkspace, type TermKind } from "@shared/types";
+import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
+import { channels, type AgentSettings, type NewWorkspace, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as models from "./models";
@@ -30,6 +30,12 @@ export function registerIpc() {
   ipcMain.handle(channels.changes, (_event, id: string) => workspaces.changes(id));
 
   ipcMain.handle(channels.file, (_event, id: string, path: string) => workspaces.file(id, path));
+  ipcMain.handle(channels.files, (_event, id: string) => workspaces.files(id));
+  ipcMain.handle(channels.setTheme, async (_event, theme: Theme) => {
+    if (!["system", "light", "dark"].includes(theme)) return;
+    nativeTheme.themeSource = theme;
+    await store.update((state) => ({ ...state, theme }));
+  });
   ipcMain.handle(channels.models, () => models.catalog());
   ipcMain.handle(channels.configure, (_event, id: string, settings: AgentSettings) => agents.configure(id, settings));
   ipcMain.handle(channels.transcript, (_event, id: string) => agents.transcript(id));
