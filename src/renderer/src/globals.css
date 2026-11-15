@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0a0a0a;
+  --color-soft: #525252;
+  --color-mute: #737373;
+  --color-line: #ebebeb;
+  --color-panel: #fafafa;
+  --color-stage: #f4f4f5;
+  --color-ready: #16a34a;
+  --color-busy: #f59e0b;
+  --color-ask: #2563eb;
+  --color-done: #a3a3a3;
+  --color-idle: #d4d4d4;
+  --color-plus: #15803d;
+  --color-minus: #dc2626;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+}
+
+.drag {
+  -webkit-app-region: drag;
+}
+
+.no-drag,
+.drag button,
+.drag select,
+.drag input {
+  -webkit-app-region: no-drag;
+}
+
+::selection {
+  background: #0a0a0a;
+  color: #ffffff;
+}
