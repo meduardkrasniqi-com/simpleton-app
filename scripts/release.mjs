@@ -1,6 +1,6 @@
 import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, readFileSync, statSync, writeFileSync } from "node:fs";
 
 const run = (cmd, env = {}) => execSync(cmd, { stdio: "inherit", env: { ...process.env, ...env } });
 const read = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -37,7 +37,12 @@ const latest = [
 ].join("\n");
 writeFileSync("dist/latest-mac.yml", latest);
 
-const assets = [...entries, ...entries.map((name) => `${name}.blockmap`), "latest-mac.yml"].map((name) => `dist/${name}`);
+const stable = archs.map((arch) => {
+  const name = `${productName}-${arch}.dmg`;
+  copyFileSync(`dist/${file(arch, "dmg")}`, `dist/${name}`);
+  return name;
+});
+const assets = [...entries, ...entries.map((name) => `${name}.blockmap`), ...stable, "latest-mac.yml"].map((name) => `dist/${name}`);
 let exists = true;
 try {
   read(`gh release view ${tag} -R ${repo} --json tagName`);

@@ -57,7 +57,7 @@ function focusWindow() {
   app.focus({ steal: true });
 }
 
-app.setName("Simpleton");
+app.setName(app.isPackaged ? "Simpleton" : "Simpleton Dev");
 auth.registerScheme();
 
 app.on("open-url", (event, url) => {
