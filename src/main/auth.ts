@@ -46,7 +46,11 @@ export function registerScheme() {
 
 const base64url = (buffer: Buffer) => buffer.toString("base64url");
 
-function request(path: string, init: RequestInit = {}, timeout = 15000) {
+export function token() {
+  return session?.token ?? null;
+}
+
+export function request(path: string, init: RequestInit = {}, timeout = 15000) {
   return net.fetch(`${baseUrl}${path}`, { ...init, signal: AbortSignal.timeout(timeout) });
 }
 

@@ -1,6 +1,6 @@
 import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitPullRequest, Link, LoaderCircle, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
-import type { FileChange, Preview, Workspace } from "@shared/types";
+import { useState, type ReactNode } from "react";
+import type { FileChange, Preview, Share, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { Dot, ghost, outline, primary, Stat } from "@/components/ui";
 import { cn, totals } from "@/lib/utils";
@@ -86,44 +86,36 @@ function LinkRow({ icon, label, detail, trailing, muted, onClick, disabled, chil
   );
 }
 
-type Share = "off" | "creating" | "on";
-
-const shares = new Map<string, Share>();
-
-function useShare(id: string) {
-  const [state, setStateRaw] = useState<Share>(() => shares.get(id) ?? "off");
-  const setState = (next: Share) => {
-    shares.set(id, next);
-    setStateRaw(next);
-  };
-  useEffect(() => {
-    if (state !== "creating") return;
-    const timer = setTimeout(() => setState("on"), 1000);
-    return () => clearTimeout(timer);
-  });
-  return [state, setState] as const;
-}
-
-function Links({ workspace, preview, share, setShare }: { workspace: Workspace; preview?: Preview; share: Share; setShare: (next: Share) => void }) {
+function Links({ workspace, preview, share, onRun }: { workspace: Workspace; preview?: Preview; share?: Share; onRun: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [creating, setCreating] = useState(false);
   const live = preview?.state === "starting" || preview?.state === "running";
-  const url = `https://${workspace.branch}.simpleton.io`;
-  const creating = share === "creating";
+
+  const create = async () => {
+    setCreating(true);
+    if (!live) onRun();
+    try {
+      await window.simpleton.share(workspace.id);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const copy = async () => {
-    await navigator.clipboard.writeText(url);
+    if (!share) return;
+    await navigator.clipboard.writeText(share.url);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
-  if (!live && !workspace.prUrl && share !== "on") {
+  if (!live && !workspace.prUrl && !share) {
     return (
       <div className="flex flex-col items-center py-4 text-center">
         <span className="grid size-9 place-items-center rounded-full bg-stage">
           <Link className="size-4 text-mute" />
         </span>
         <p className="mt-2.5 text-[12.5px] text-mute">No links yet</p>
-        <button type="button" onClick={() => setShare("creating")} disabled={creating} className={cn(outline, size, "mt-3 disabled:opacity-100")}>
+        <button type="button" onClick={create} disabled={creating} className={cn(outline, size, "mt-3 disabled:opacity-100")}>
           {creating ? <LoaderCircle className="size-3.5 animate-spin" /> : <Link className="size-3.5" />}
           {creating ? "Creating link" : "Create share link"}
         </button>
@@ -152,13 +144,21 @@ function Links({ workspace, preview, share, setShare }: { workspace: Workspace; 
           onClick={() => window.open(workspace.prUrl)}
         />
       )}
-      {share === "on" ? (
+      {share ? (
         <LinkRow
-          icon={<Link className="size-3.5 text-ready" />}
+          icon={
+            share.status === "connecting" ? (
+              <LoaderCircle className="size-3.5 animate-spin text-mute" />
+            ) : (
+              <Link className={cn("size-3.5", share.status === "live" ? "text-ready" : "text-minus")} />
+            )
+          }
           label="Share"
-          detail={url.replace("https://", "")}
+          detail={share.status === "error" ? share.error : share.url.replace("https://", "")}
           trailing={
-            copied ? (
+            share.status === "error" ? (
+              "Retry"
+            ) : copied ? (
               <>
                 <Check className="size-3.5 text-ready" />
                 Copied
@@ -167,11 +167,11 @@ function Links({ workspace, preview, share, setShare }: { workspace: Workspace; 
               <Copy className="size-3.5" />
             )
           }
-          onClick={copy}
+          onClick={share.status === "error" ? create : copy}
         >
           <button
             type="button"
-            onClick={() => setShare("off")}
+            onClick={() => window.simpleton.unshare(workspace.id)}
             aria-label="Stop sharing"
             title="Stop sharing"
             className="absolute right-8 top-1.5 hidden size-5 place-items-center rounded bg-[color-mix(in_oklab,var(--color-ink)_4%,var(--color-surface))] text-mute hover:bg-[color-mix(in_oklab,var(--color-ink)_9%,var(--color-surface))] hover:text-minus group-hover:grid"
@@ -185,7 +185,7 @@ function Links({ workspace, preview, share, setShare }: { workspace: Workspace; 
           label={creating ? "Creating link" : "Create share link"}
           muted
           disabled={creating}
-          onClick={() => setShare("creating")}
+          onClick={create}
         />
       )}
     </div>
@@ -195,6 +195,7 @@ function Links({ workspace, preview, share, setShare }: { workspace: Workspace; 
 export function WorkspaceSide({
   workspace,
   preview,
+  share,
   files,
   activeFile,
   terminalOpen,
@@ -205,6 +206,7 @@ export function WorkspaceSide({
 }: {
   workspace: Workspace;
   preview?: Preview;
+  share?: Share;
   files: FileChange[] | null;
   activeFile: string;
   terminalOpen: boolean;
@@ -214,7 +216,6 @@ export function WorkspaceSide({
   onCollapse: () => void;
 }) {
   const live = preview?.state === "starting" || preview?.state === "running";
-  const [share, setShare] = useShare(workspace.id);
   const { width, resize, reset } = useWidth(
     "simpleton.width.right",
     () => Math.min(480, Math.max(360, window.innerWidth * 0.34)),
@@ -254,7 +255,7 @@ export function WorkspaceSide({
         id="links"
         title="Links"
         meta={
-          share === "on" && (
+          share?.status === "live" && (
             <span className="flex items-center gap-1.5 text-[12px] font-medium text-ready">
               <Dot className="bg-ready" />
               Live
@@ -262,7 +263,7 @@ export function WorkspaceSide({
           )
         }
       >
-        <Links workspace={workspace} preview={preview} share={share} setShare={setShare} />
+        <Links workspace={workspace} preview={preview} share={share} onRun={onRun} />
       </Section>
 
       <Section id="changes" title="Changes" grow meta={files && files.length > 0 && <Stat added={t.added} removed={t.removed} />}>

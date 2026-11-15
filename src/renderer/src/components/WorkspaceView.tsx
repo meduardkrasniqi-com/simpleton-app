@@ -1,6 +1,6 @@
 import { ArrowUp, Bot, CircleAlert, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import type { Entry, FileChange, Preview, TermKind, Workspace } from "@shared/types";
+import type { Entry, FileChange, Preview, Share, TermKind, Workspace } from "@shared/types";
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
 import { Markdown } from "@/components/Markdown";
@@ -188,7 +188,7 @@ function Tab({ active, title, onSelect, onClose, children }: { active: boolean; 
   );
 }
 
-export function WorkspaceView({ workspace, preview }: { workspace: Workspace; preview?: Preview }) {
+export function WorkspaceView({ workspace, preview, share }: { workspace: Workspace; preview?: Preview; share?: Share }) {
   const [files, setFiles] = useState<FileChange[] | null>(null);
   const [side, setSideState] = useState(readSide);
   const setSide = (open: boolean) => {
@@ -412,6 +412,7 @@ export function WorkspaceView({ workspace, preview }: { workspace: Workspace; pr
         <WorkspaceSide
           workspace={workspace}
           preview={preview}
+          share={share}
           files={files}
           activeFile={tabs.active}
           terminalOpen={panel.open && panel.tab === "shell"}

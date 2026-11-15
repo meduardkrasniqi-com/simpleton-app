@@ -37,6 +37,8 @@ const api: Api = {
   },
   startApp: (id) => ipcRenderer.invoke(channels.startApp, id),
   stopApp: (id) => ipcRenderer.invoke(channels.stopApp, id),
+  share: (id) => ipcRenderer.invoke(channels.share, id),
+  unshare: (id) => ipcRenderer.invoke(channels.unshare, id),
   onCloseTab: (listener) => {
     const handler = () => listener();
     ipcRenderer.on(channels.closeTab, handler);

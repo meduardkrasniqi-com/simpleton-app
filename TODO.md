@@ -11,13 +11,15 @@
 
 - [ ] Install the `claude` and `codex` CLIs and log in to both
 - [ ] Check Anthropic's terms on using Claude subscription login inside a third-party app
-- [ ] Make sure you own `simpleton.io` and add it to Cloudflare
+- [ ] Connect `simpleton.live` to Cloudflare for the relay
 
 ## Live links relay
 
 - [ ] `cd relay && npm install`
 - [ ] `npx wrangler login`
-- [ ] `npx wrangler secret put RELAY_SECRET` and pick a long random string
+- [ ] Make a secret with `openssl rand -base64 32`
+- [ ] `npx wrangler secret put RELAY_TICKET_SECRET` and paste it
+- [ ] Set the same value as `RELAY_TICKET_SECRET` in Vercel and in the website's `.env.local`
 - [ ] `npm run deploy`
 
 ## Signing and release

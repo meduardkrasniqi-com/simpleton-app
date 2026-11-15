@@ -95,12 +95,22 @@ export type Preview = {
   url: string;
 };
 
+export type ShareStatus = "connecting" | "live" | "error";
+
+export type Share = {
+  name: string;
+  url: string;
+  status: ShareStatus;
+  error?: string;
+};
+
 export type Theme = "system" | "light" | "dark";
 
 export type AppState = {
   repos: Repo[];
   workspaces: Workspace[];
   previews: Record<string, Preview>;
+  shares: Record<string, Share>;
   theme: Theme;
 };
 
@@ -151,6 +161,8 @@ export type Api = {
   onTerminal: (listener: (event: TermData) => void) => () => void;
   startApp: (id: string) => Promise<void>;
   stopApp: (id: string) => Promise<void>;
+  share: (id: string) => Promise<void>;
+  unshare: (id: string) => Promise<void>;
   onCloseTab: (listener: () => void) => () => void;
   auth: () => Promise<Auth>;
   onAuth: (listener: (auth: Auth) => void) => () => void;
@@ -183,6 +195,8 @@ export const channels = {
   terminalData: "terminal:data",
   startApp: "app:start",
   stopApp: "app:stop",
+  share: "share:start",
+  unshare: "share:stop",
   closeTab: "window:close-tab",
   auth: "auth:get",
   authChanged: "auth:changed",

@@ -2,10 +2,31 @@
   "name": "simpleton-relay",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
-  "routes": [{ "pattern": "*.simpleton.io/*", "zone_name": "simpleton.io" }],
-  "vars": { "SHARE_DOMAIN": "simpleton.io" },
-  "durable_objects": {
-    "bindings": [{ "name": "TUNNEL", "class_name": "Tunnel" }]
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "*.simpleton.live/*",
+      "zone_name": "simpleton.live"
+    }
+  ],
+  "vars": {
+    "SHARE_DOMAIN": "simpleton.live"
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tunnel"] }]
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TUNNEL",
+        "class_name": "Tunnel"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "Tunnel"
+      ]
+    }
+  ]
 }

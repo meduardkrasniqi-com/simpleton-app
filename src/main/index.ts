@@ -4,6 +4,7 @@ import * as agents from "./agents";
 import * as auth from "./auth";
 import { registerIpc } from "./ipc";
 import { setMenu } from "./menu";
+import * as share from "./share";
 import * as terminals from "./terminals";
 import * as store from "./store";
 
@@ -65,6 +66,8 @@ app.on("open-url", (event, url) => {
 
 auth.subscribe((next, previous) => {
   if (previous.status === "signing-in" && (next.status === "signed-in" || next.error) && app.isReady()) focusWindow();
+  if (next.status === "signed-in") share.resume();
+  if (next.status === "signed-out") share.suspend();
 });
 
 app.whenReady().then(async () => {
@@ -87,6 +90,7 @@ app.whenReady().then(async () => {
 app.on("before-quit", () => {
   agents.shutdown();
   terminals.shutdown();
+  share.shutdown();
 });
 
 app.on("window-all-closed", () => {

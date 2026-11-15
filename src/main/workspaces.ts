@@ -7,6 +7,7 @@ import type { NewWorkspace, Repo, Workspace } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as git from "./git";
+import * as share from "./share";
 import * as store from "./store";
 
 const worktreesDir = () => join(app.getPath("userData"), "worktrees");
@@ -83,6 +84,7 @@ export async function removeWorkspace(id: string) {
   if (!workspace) return;
   await agents.forget(id);
   await apps.forget(id);
+  await share.stop(id);
   const repo = repos.find((r) => r.id === workspace.repoId);
   if (repo) await git.removeWorktree(repo.path, workspace.path, workspace.branch);
   await store.update((s) => ({ ...s, workspaces: s.workspaces.filter((w) => w.id !== id) }));

@@ -5,6 +5,7 @@ import * as apps from "./apps";
 import * as auth from "./auth";
 import * as models from "./models";
 import * as pr from "./pr";
+import * as share from "./share";
 import * as store from "./store";
 import * as terminals from "./terminals";
 import * as workspaces from "./workspaces";
@@ -54,6 +55,8 @@ export function registerIpc() {
   ipcMain.on(channels.resizeTerminal, (_event, id: string, kind: TermKind, cols: number, rows: number) => terminals.resize(id, kind, cols, rows));
   ipcMain.handle(channels.startApp, (_event, id: string) => apps.start(id));
   ipcMain.handle(channels.stopApp, (_event, id: string) => apps.stop(id));
+  ipcMain.handle(channels.share, (_event, id: string) => share.start(id));
+  ipcMain.handle(channels.unshare, (_event, id: string) => share.stop(id));
 
   ipcMain.handle(channels.createPr, async (_event, id: string) => {
     const hasPr = !!store.get().workspaces.find((w) => w.id === id)?.prUrl;

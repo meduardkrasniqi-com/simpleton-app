@@ -28,7 +28,7 @@ export function App() {
       <Sidebar state={state} user={auth.user} active={workspace ? active : "home"} onSelect={setActive} onNewTask={newTask} />
       <main className="min-w-0 flex-1 bg-surface">
         {workspace ? (
-          <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} />
+          <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} share={state.shares[workspace.id]} />
         ) : (
           <div className="flex h-full flex-col">
             <div className="drag h-12 shrink-0" />

@@ -1,5 +1,12 @@
 export const CONNECT_PATH = "/_simpleton/connect";
 
+export const PING = "ping";
+export const PONG = "pong";
+
+export const PAGE_HEADER = "x-simpleton-page";
+
+export const CLOSE = { replaced: 4000, unauthorized: 4001, invalidName: 4002, taken: 4009 } as const;
+
 export type TunnelRequest = {
   type: "request";
   id: string;

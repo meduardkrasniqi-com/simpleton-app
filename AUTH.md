@@ -22,6 +22,7 @@ The app requires an account. Users sign in with Google on simpleton.io in their 
 | POST | `/api/desktop/token` | `{ code, verifier }` | `{ token, expiresAt, user }` or `400 { error: "invalid_grant" }` |
 | GET | `/api/desktop/me` | `Authorization: Bearer <token>` | `{ user, expiresAt }` or `401` |
 | POST | `/api/desktop/logout` | `Authorization: Bearer <token>` | `204` |
+| POST | `/api/desktop/relay-ticket` | `Authorization: Bearer <token>`, `{ name }` | `{ ticket, expiresAt }`, `400 { error: "invalid_name" }` or `401` |
 
 `user` is `{ id, name, email, image }`.
 

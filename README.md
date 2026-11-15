@@ -9,7 +9,7 @@ src/main       Electron main process: state, git worktrees, IPC
 src/preload    Typed bridge exposed to the UI as window.simpleton
 src/renderer   React + Tailwind UI
 src/shared     Types and IPC channel names used by all three
-relay          Cloudflare Worker that serves *.simpleton.io live links
+relay          Cloudflare Worker that serves *.simpleton.live live links
 ```
 
 ## Develop
@@ -46,7 +46,7 @@ New worktrees get copies of the repo's root `.env*` files, because git does not 
 
 ## Pull requests
 
-Create PR (`src/main/pr.ts`) works without a GitHub token. It commits any uncommitted work, using the task's first line as the message, and pushes the branch with the user's own git credentials. If `gh` is installed, it then opens the PR with the agent's last message as the body. Otherwise it opens GitHub's new pull request page with the title and body filled in. Once a PR exists, the button becomes Commit & push, which commits new work and pushes it to the same branch. Share copies a placeholder `https://<branch>.simpleton.io` link until the relay is wired up.
+Create PR (`src/main/pr.ts`) works without a GitHub token. It commits any uncommitted work, using the task's first line as the message, and pushes the branch with the user's own git credentials. If `gh` is installed, it then opens the PR with the agent's last message as the body. Otherwise it opens GitHub's new pull request page with the title and body filled in. Once a PR exists, the button becomes Commit & push, which commits new work and pushes it to the same branch.
 
 ## Ship
 
@@ -61,11 +61,27 @@ Signing and notarization read the usual electron-builder variables: `CSC_LINK`, 
 ```bash
 cd relay
 npm install
-npx wrangler secret put RELAY_SECRET
+npx wrangler secret put RELAY_TICKET_SECRET
 npm run deploy
 ```
 
-The app opens a WebSocket to `wss://<name>.simpleton.io/_simpleton/connect?name=<name>` with `Authorization: Bearer <RELAY_SECRET>`. Requests to `https://<name>.simpleton.io` are sent down that socket as `request` messages and answered with `response` messages. The message shapes are in `relay/src/protocol.ts`. The single shared secret is a placeholder until per-user tokens exist.
+`RELAY_TICKET_SECRET` is shared by the website and the relay only. The app never sees it. Set the same value in the website's environment.
+
+To share a workspace, the app asks the website for a ticket with `POST /api/desktop/relay-ticket`, sending `{ name }` and its login token. The website returns `{ ticket, expiresAt }`. The ticket is an HS256 JWT with `{ sub: userId, name, aud: "relay", exp }`, signed with `RELAY_TICKET_SECRET`, and it expires after 5 minutes. The app fetches a fresh one each time it connects.
+
+The app then opens a WebSocket to `wss://<name>.simpleton.live/_simpleton/connect?name=<name>` with `Authorization: Bearer <ticket>`. The relay checks the signature, the expiry and that the ticket's name matches. The first user to connect to a name owns it, and connects from anyone else get `409`. Names like `www`, `api` and `admin` are reserved.
+
+Requests to `https://<name>.simpleton.live` are sent down that socket as `request` messages and answered with `response` messages. The message shapes are in `relay/src/protocol.ts`. When the relay refuses a connection, it accepts the socket and closes it with a code: `4001` bad ticket, `4002` invalid name, `4009` name taken, `4000` replaced by a newer connection.
+
+## Share
+
+Share (`src/main/share.ts`) gives each workspace a stable name: the branch plus six random characters, saved in `state.json`. It fetches a ticket, connects to the relay and reconnects with a fresh ticket when the connection drops. A `ping` every 25 seconds keeps the socket open. The relay answers it with `pong` without waking up.
+
+Each request goes to the workspace's Run port on `localhost`. The app sets `Host` to `localhost:<port>` so dev servers like Vite accept it, and passes the public host in `X-Forwarded-Host`. It asks for uncompressed responses and unpacks any that come back compressed. It rewrites `Location` headers that point at localhost and drops `Domain` from cookies. Responses are capped at 20 MB and 25 seconds. When the app can't answer, it replies with an `x-simpleton-page` header instead of a body, and the relay shows a branded page from `relay/src/pages.ts`. The states are `stopped`, `starting`, `unreachable` and `timeout`. The relay shows `offline` when no app is connected and `missing` for names nobody has claimed. While Run is starting, requests still go through as soon as the server accepts them. Until then visitors see a page that reloads itself every 3 seconds. Create share link starts Run when the app isn't running.
+
+Stopping a share deletes its name, so the old link stops working for good.
+
+`SIMPLETON_SHARE_DOMAIN` changes the share domain. `SIMPLETON_RELAY_URL` points the app at another relay, such as `ws://localhost:8787` for `wrangler dev`.
 
 ## Roadmap
 

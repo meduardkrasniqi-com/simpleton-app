@@ -1,21 +1,25 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { app } from "electron";
-import type { AppState } from "@shared/types";
+import type { AppState, Share } from "@shared/types";
 
 type Listener = (state: AppState) => void;
 
 const file = () => join(app.getPath("userData"), "state.json");
 
-let state: AppState = { repos: [], workspaces: [], previews: {}, theme: "system" };
+const empty = (): AppState => ({ repos: [], workspaces: [], previews: {}, shares: {}, theme: "system" });
+
+let state: AppState = empty();
 const listeners = new Set<Listener>();
 
 export async function load() {
   try {
     const parsed = JSON.parse(await readFile(file(), "utf8")) as Partial<AppState>;
-    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], previews: {}, theme: parsed.theme ?? "system" };
+    const shares: Record<string, Share> = {};
+    for (const [id, share] of Object.entries(parsed.shares ?? {})) shares[id] = { name: share.name, url: share.url, status: "connecting" };
+    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], previews: {}, shares, theme: parsed.theme ?? "system" };
   } catch {
-    state = { repos: [], workspaces: [], previews: {}, theme: "system" };
+    state = empty();
   }
   return state;
 }
