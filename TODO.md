@@ -39,4 +39,4 @@
 - [ ] Show agent questions with answer buttons
 - [ ] One-click PR with an agent-written description
 - [ ] Start a dev server per workspace and connect it to the relay
-- [ ] Auto-update
+- [x] Auto-update

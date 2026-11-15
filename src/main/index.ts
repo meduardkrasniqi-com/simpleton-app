@@ -7,6 +7,7 @@ import { setMenu } from "./menu";
 import * as share from "./share";
 import * as terminals from "./terminals";
 import * as store from "./store";
+import * as updates from "./updates";
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -79,6 +80,7 @@ app.whenReady().then(async () => {
   registerIpc();
   setMenu();
   createWindow();
+  updates.init();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
