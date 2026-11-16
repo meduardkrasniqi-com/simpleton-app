@@ -41,7 +41,25 @@ export async function branchExists(path: string, branch: string) {
 }
 
 export async function addWorktree(repo: string, target: string, branch: string, base: string) {
-  await git(repo, ["worktree", "add", "-b", branch, target, base]);
+  if (await branchExists(repo, branch)) await git(repo, ["worktree", "add", target, branch]);
+  else await git(repo, ["worktree", "add", "--no-track", "-b", branch, target, base]);
+}
+
+async function refExists(path: string, ref: string) {
+  return git(path, ["rev-parse", "--verify", "--quiet", ref]).then(
+    () => true,
+    () => false,
+  );
+}
+
+export async function remoteBase(path: string) {
+  const remote = await git(path, ["remote", "get-url", "origin"]).catch(() => "");
+  if (!remote) return null;
+  const head = await git(path, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]).catch(() => "");
+  const branch = head.replace(/^origin\//, "") || (await git(path, ["ls-remote", "--symref", "origin", "HEAD"]).catch(() => "")).match(/refs\/heads\/(\S+)\s+HEAD/)?.[1] || "main";
+  await exec("git", ["fetch", "--quiet", "origin", branch], { cwd: path, timeout: 30000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } }).catch(() => undefined);
+  const ref = `origin/${branch}`;
+  return (await refExists(path, ref)) ? ref : null;
 }
 
 export async function removeWorktree(repo: string, target: string, branch: string) {

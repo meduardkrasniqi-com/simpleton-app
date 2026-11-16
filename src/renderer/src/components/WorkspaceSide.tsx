@@ -1,4 +1,4 @@
-import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitPullRequest, Link, LoaderCircle, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
+import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, LoaderCircle, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { FileChange, Preview, Share, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
@@ -44,30 +44,17 @@ function Section({ id, title, meta, grow, children }: { id: string; title: strin
 }
 
 function PrButton({ workspace }: { workspace: Workspace }) {
-  const [busy, setBusy] = useState(false);
-  const [pushed, setPushed] = useState(false);
-  const hasPr = !!workspace.prUrl;
-
-  const run = async () => {
-    setBusy(true);
-    try {
-      const result = await window.simpleton.createPr(workspace.id);
-      if (result === "pushed") {
-        setPushed(true);
-        setTimeout(() => setPushed(false), 1500);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const Icon = busy ? LoaderCircle : pushed ? Check : hasPr ? ArrowUpFromLine : GitPullRequest;
-  const label = hasPr ? (busy ? "Pushing" : pushed ? "Pushed" : "Commit & push") : busy ? "Creating PR" : "Create PR";
+  if (workspace.prState === "merged") return null;
+  const open = !!workspace.prUrl && workspace.prState !== "closed";
+  const message = open
+    ? "Commit any uncommitted changes and push them to the open pull request for this branch."
+    : `Commit the changes, push this branch and open a pull request against ${workspace.base.replace(/^origin\//, "")} with gh. Write a clear title and description, then reply with the pull request link.`;
+  const Icon = open ? ArrowUpFromLine : GitPullRequest;
 
   return (
-    <button type="button" onClick={run} disabled={busy || workspace.status === "working"} className={cn(primary, size)}>
-      <Icon className={cn("size-3.5", busy && "animate-spin")} />
-      {label}
+    <button type="button" onClick={() => window.simpleton.send(workspace.id, message)} disabled={workspace.status === "working" || workspace.status === "setup"} className={cn(primary, size)}>
+      <Icon className="size-3.5" />
+      {open ? "Push changes" : "Create PR"}
     </button>
   );
 }
@@ -115,7 +102,7 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
           <Link className="size-4 text-mute" />
         </span>
         <p className="mt-2.5 text-[12.5px] text-mute">No links yet</p>
-        <button type="button" onClick={create} disabled={creating} className={cn(outline, size, "mt-3 disabled:opacity-100")}>
+        <button type="button" onClick={create} disabled={creating || workspace.status === "setup"} className={cn(outline, size, "mt-3 disabled:opacity-100")}>
           {creating ? <LoaderCircle className="size-3.5 animate-spin" /> : <Link className="size-3.5" />}
           {creating ? "Creating link" : "Create share link"}
         </button>
@@ -137,9 +124,9 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
       )}
       {workspace.prUrl && (
         <LinkRow
-          icon={<GitPullRequest className="size-3.5 text-ready" />}
+          icon={workspace.prState === "merged" ? <GitMerge className="size-3.5 text-done" /> : <GitPullRequest className={cn("size-3.5", workspace.prState === "closed" ? "text-minus" : "text-ready")} />}
           label="Pull request"
-          detail={`#${/\/pull\/(\d+)/.exec(workspace.prUrl)?.[1] ?? ""}`}
+          detail={`#${/\/pull\/(\d+)/.exec(workspace.prUrl)?.[1] ?? ""}${workspace.prState === "merged" ? " · Merged" : workspace.prState === "closed" ? " · Closed" : ""}`}
           trailing={<ArrowUpRight className="size-3.5" />}
           onClick={() => window.open(workspace.prUrl)}
         />
@@ -232,7 +219,7 @@ export function WorkspaceSide({
           <PanelRight className="size-4" />
         </button>
         <div className="ml-auto flex items-center gap-1.5">
-          <button type="button" onClick={onToggleTerminal} aria-pressed={terminalOpen} className={cn(ghost, "h-7 px-2 text-[12.5px]", terminalOpen && "bg-ink/[0.06] text-ink")}>
+          <button type="button" onClick={onToggleTerminal} disabled={workspace.status === "setup"} aria-pressed={terminalOpen} className={cn(ghost, "h-7 px-2 text-[12.5px]", terminalOpen && "bg-ink/[0.06] text-ink")}>
             <SquareTerminal className="size-3.5" />
             Terminal
           </button>
@@ -242,7 +229,7 @@ export function WorkspaceSide({
               Stop
             </button>
           ) : (
-            <button type="button" onClick={onRun} className={cn(outline, size, preview?.state === "failed" && "text-minus")}>
+            <button type="button" onClick={onRun} disabled={workspace.status === "setup"} className={cn(outline, size, preview?.state === "failed" && "text-minus")}>
               <Play className="size-3 fill-current" />
               Run
             </button>

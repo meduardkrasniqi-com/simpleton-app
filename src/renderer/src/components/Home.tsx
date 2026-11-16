@@ -4,7 +4,7 @@ import { Composer } from "@/components/Composer";
 import { Dot, Mark, primary } from "@/components/ui";
 import { agents, cn, homeGroups, statuses } from "@/lib/utils";
 
-export function Home({ state, repoId, onOpen }: { state: AppState; repoId?: string; onOpen: (id: string) => void }) {
+export function Home({ state, onOpen }: { state: AppState; onOpen: (id: string) => void }) {
   if (!state.repos.length) {
     return (
       <div className="grid h-full place-items-center">
@@ -27,7 +27,7 @@ export function Home({ state, repoId, onOpen }: { state: AppState; repoId?: stri
       <div className="mx-auto max-w-[640px]">
         <p className="text-[22px] font-semibold tracking-[-0.02em]">What should we work on?</p>
         <div className="mt-4">
-          <Composer repos={state.repos} repoId={repoId} onCreated={(w) => onOpen(w.id)} />
+          <Composer repos={state.repos} onCreated={(w) => onOpen(w.id)} />
         </div>
         <div className="mt-8 space-y-5">
           {homeGroups.map((status) => {

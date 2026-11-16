@@ -1,6 +1,10 @@
 export type Agent = "claude-code" | "codex";
 
-export type Status = "idle" | "working" | "input" | "ready" | "merged";
+export type Status = "setup" | "idle" | "working" | "input" | "ready" | "merged";
+
+export type SetupStep = "fetch" | "worktree" | "env" | "agent";
+
+export type Setup = { step: SetupStep; error?: string };
 
 export type Repo = {
   id: string;
@@ -24,9 +28,11 @@ export type Workspace = {
   mode?: string;
   allow?: string[];
   prUrl?: string;
+  prState?: PrState;
+  setup?: Setup;
 };
 
-export type PrResult = "created" | "opened" | "pushed";
+export type PrState = "open" | "merged" | "closed";
 
 export type ModelOption = {
   id: string;
@@ -196,8 +202,8 @@ export type Api = {
   removeRepo: (id: string) => Promise<void>;
   createWorkspace: (input: NewWorkspace) => Promise<Workspace>;
   removeWorkspace: (id: string) => Promise<void>;
+  retrySetup: (id: string) => Promise<void>;
   changes: (id: string) => Promise<FileChange[]>;
-  createPr: (id: string) => Promise<PrResult | null>;
   file: (id: string, path: string) => Promise<FileView>;
   files: (id: string) => Promise<string[]>;
   setTheme: (theme: Theme) => Promise<void>;
@@ -231,8 +237,8 @@ export const channels = {
   removeRepo: "repo:remove",
   createWorkspace: "workspace:create",
   removeWorkspace: "workspace:remove",
+  retrySetup: "workspace:retry-setup",
   changes: "workspace:changes",
-  createPr: "workspace:pr",
   file: "workspace:file",
   files: "workspace:files",
   setTheme: "app:theme",

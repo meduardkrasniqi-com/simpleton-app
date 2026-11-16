@@ -4,9 +4,9 @@ import { modes, type Entry, type FileChange, type Preview, type Reply, type Shar
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
 import { Markdown } from "@/components/Markdown";
-import { ModelPicker } from "@/components/ModelPicker";
-import { ModePicker } from "@/components/ModePicker";
 import { AnsweredQuestion, ApprovalCard, PlanCard, QuestionCard } from "@/components/Prompts";
+import { RunSettings, useAgentChoices } from "@/components/RunSettings";
+import { WorkspaceSetup } from "@/components/WorkspaceSetup";
 import { WorkspaceSide } from "@/components/WorkspaceSide";
 import { Terminal as TerminalView } from "@/components/Terminal";
 import { Dot, ghost } from "@/components/ui";
@@ -103,6 +103,7 @@ function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initi
   const input = useRef<HTMLTextAreaElement>(null);
   const working = workspace.status === "working" || (workspace.status === "input" && !!pending);
   const canSend = !!text.trim() && (!working || !!pending);
+  const choices = useAgentChoices(workspace.agent, { model: workspace.model, effort: workspace.effort, mode: workspace.mode }, (settings) => window.simpleton.configure(workspace.id, settings));
 
   useEffect(() => {
     input.current?.focus();
@@ -133,9 +134,8 @@ function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initi
         rows={1}
         className="block max-h-40 min-h-6 w-full resize-none bg-transparent px-1 text-[14px] leading-[1.5] outline-none [field-sizing:content] placeholder:text-mute"
       />
-      <div className="mt-2 flex items-center gap-2">
-        <ModePicker agent={workspace.agent} value={workspace.mode} onChange={(mode) => window.simpleton.configure(workspace.id, { model: workspace.model, effort: workspace.effort, mode })} />
-        <ModelPicker agent={workspace.agent} value={{ model: workspace.model, effort: workspace.effort }} onChange={(settings) => window.simpleton.configure(workspace.id, { ...settings, mode: workspace.mode })} />
+      <div className="-ml-1 mt-2 flex items-center gap-2">
+        <RunSettings choices={choices} side="top" />
         <span className="ml-auto" />
         {working && !canSend ? (
           <button type="button" onClick={() => window.simpleton.stop(workspace.id)} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface">
@@ -387,6 +387,12 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
             <div className={cn("flex min-h-0 flex-1 flex-col", tabs.active !== "chat" && "hidden")}>
               <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
                 <div className="mx-auto max-w-[720px]">
+                  {workspace.status === "setup" && !entries?.length && (
+                    <>
+                      <Row entry={{ id: "task", kind: "user", text: workspace.task }} agent={workspace.agent} onOpen={openFile} onReply={() => undefined} />
+                      <WorkspaceSetup workspace={workspace} />
+                    </>
+                  )}
                   {entries?.map((entry, i) => (
                     <div key={entry.id} className={gap(entries[i - 1], entry)}>
                       <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />
@@ -396,7 +402,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                 </div>
               </div>
               <div className="shrink-0 px-8 pb-5">
-                <div className="mx-auto max-w-[720px]">{entries && <FollowUp workspace={workspace} pending={pending} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
+                <div className="mx-auto max-w-[720px]">{entries && workspace.status !== "setup" && <FollowUp workspace={workspace} pending={pending} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
               </div>
             </div>
           </FileLinksContext.Provider>

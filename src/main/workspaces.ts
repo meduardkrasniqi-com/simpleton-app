@@ -3,7 +3,7 @@ import { copyFile, mkdir, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { app } from "electron";
-import type { NewWorkspace, Repo, Workspace } from "@shared/types";
+import type { NewWorkspace, Repo, SetupStep, Workspace } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as git from "./git";
@@ -66,16 +66,89 @@ export async function createWorkspace(input: NewWorkspace) {
   const repo = store.get().repos.find((r) => r.id === input.repoId);
   if (!repo) throw new Error("Unknown repository");
   const branch = await uniqueBranch(repo, input.task);
-  const base = await git.currentBranch(repo.path);
   const id = randomUUID();
   const path = join(worktreesDir(), repo.name, `${branch}-${id.slice(0, 6)}`);
-  await mkdir(join(worktreesDir(), repo.name), { recursive: true });
-  await git.addWorktree(repo.path, path, branch, base);
-  await copyEnvFiles(repo.path, path);
-  const workspace: Workspace = { id, repoId: repo.id, task: input.task.trim(), agent: input.agent, branch, base, path, status: "working", createdAt: Date.now(), model: input.model || undefined, effort: input.effort || undefined, mode: input.mode || undefined };
+  const workspace: Workspace = {
+    id,
+    repoId: repo.id,
+    task: input.task.trim(),
+    agent: input.agent,
+    branch,
+    base: "",
+    path,
+    status: "setup",
+    setup: { step: "fetch" },
+    createdAt: Date.now(),
+    model: input.model || undefined,
+    effort: input.effort || undefined,
+    mode: input.mode || undefined,
+  };
   await store.update((s) => ({ ...s, workspaces: [...s.workspaces, workspace] }));
-  agents.send(id, workspace.task).catch(() => undefined);
+  setup(id).catch(() => undefined);
   return workspace;
+}
+
+const settingUp = new Set<string>();
+
+const find = (id: string) => store.get().workspaces.find((w) => w.id === id);
+
+async function patch(id: string, change: Partial<Workspace>) {
+  await store.update((s) => ({ ...s, workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, ...change } : w)) }));
+}
+
+function reason(error: unknown) {
+  const e = error as { stderr?: string; message?: string };
+  return (e.stderr || e.message || String(error)).trim().replace(/^Command failed: .*\n/, "");
+}
+
+async function setup(id: string) {
+  if (settingUp.has(id)) return;
+  settingUp.add(id);
+  let step: SetupStep = "fetch";
+  try {
+    const workspace = find(id);
+    const repo = workspace && store.get().repos.find((r) => r.id === workspace.repoId);
+    if (!workspace || !repo) return;
+
+    await patch(id, { status: "setup", setup: { step } });
+    const base = workspace.base || (await git.remoteBase(repo.path)) || (await git.currentBranch(repo.path));
+    if (!find(id)) return;
+
+    step = "worktree";
+    await patch(id, { base, setup: { step } });
+    if (!existsSync(workspace.path)) {
+      await mkdir(join(worktreesDir(), repo.name), { recursive: true });
+      await git.addWorktree(repo.path, workspace.path, workspace.branch, base);
+    }
+    if (!find(id)) {
+      await git.removeWorktree(repo.path, workspace.path, workspace.branch);
+      return;
+    }
+
+    step = "env";
+    await patch(id, { setup: { step } });
+    await copyEnvFiles(repo.path, workspace.path);
+    if (!find(id)) return;
+
+    step = "agent";
+    await patch(id, { setup: { step } });
+    agents.send(id, workspace.task).catch(() => undefined);
+  } catch (error) {
+    if (find(id)) await patch(id, { setup: { step, error: reason(error) } });
+  } finally {
+    settingUp.delete(id);
+  }
+}
+
+export async function retrySetup(id: string) {
+  const workspace = find(id);
+  if (workspace?.status === "setup") await setup(id);
+}
+
+export async function recoverSetups() {
+  for (const w of store.get().workspaces) {
+    if (w.status === "setup" && !w.setup?.error) await patch(w.id, { setup: { step: w.setup?.step ?? "fetch", error: "Setup was interrupted when Simpleton closed." } });
+  }
 }
 
 export async function removeWorkspace(id: string) {
@@ -92,18 +165,18 @@ export async function removeWorkspace(id: string) {
 
 export async function file(id: string, path: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
-  if (!workspace) throw new Error("Unknown workspace");
+  if (!workspace || workspace.status === "setup") throw new Error("Unknown workspace");
   return git.fileView(workspace.path, workspace.base, path);
 }
 
 export async function files(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
-  if (!workspace) return [];
+  if (!workspace || workspace.status === "setup") return [];
   return git.listFiles(workspace.path);
 }
 
 export async function changes(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
-  if (!workspace) return [];
+  if (!workspace || workspace.status === "setup") return [];
   return git.changes(workspace.path, workspace.base);
 }

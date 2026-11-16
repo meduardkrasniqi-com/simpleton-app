@@ -5,6 +5,8 @@ import * as auth from "./auth";
 import { registerIpc } from "./ipc";
 import { setMenu } from "./menu";
 import * as models from "./models";
+import * as pr from "./pr";
+import * as workspaces from "./workspaces";
 import * as share from "./share";
 import * as terminals from "./terminals";
 import * as store from "./store";
@@ -78,7 +80,9 @@ app.whenReady().then(async () => {
   }
   nativeTheme.themeSource = (await store.load()).theme;
   await agents.recover();
+  await workspaces.recoverSetups();
   registerIpc();
+  pr.watch();
   models.catalog().catch(() => undefined);
   setMenu();
   createWindow();

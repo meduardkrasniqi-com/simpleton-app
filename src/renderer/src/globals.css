@@ -4,6 +4,7 @@
   --color-surface: #ffffff;
   --color-raised: #ffffff;
   --color-raised-hover: #f7f7f7;
+  --color-menu: #ffffff;
   --color-ink: #0a0a0a;
   --color-soft: #525252;
   --color-mute: #737373;
@@ -20,6 +21,37 @@
   --color-minus: #dc2626;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --animate-pop: pop 140ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-fade: fade 140ms ease-out;
+  --animate-slide-in: slide-in 160ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-slide-back: slide-back 160ms cubic-bezier(0.2, 0.9, 0.3, 1);
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(10px);
+    }
+  }
+
+  @keyframes slide-back {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -28,6 +60,7 @@
     --color-surface: #161616;
     --color-raised: #1f1f1f;
     --color-raised-hover: #262626;
+    --color-menu: #262626;
     --color-ink: #ededed;
     --color-soft: #a8a8a8;
     --color-mute: #8a8a8a;

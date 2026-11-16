@@ -9,6 +9,7 @@ export function totals(files: FileChange[]) {
 }
 
 export const statuses: Record<Status, { label: string; dot: string }> = {
+  setup: { label: "Setting up", dot: "bg-busy animate-pulse" },
   input: { label: "Needs you", dot: "bg-ask" },
   ready: { label: "Ready to ship", dot: "bg-ready" },
   working: { label: "Working", dot: "bg-busy" },
@@ -16,7 +17,7 @@ export const statuses: Record<Status, { label: string; dot: string }> = {
   merged: { label: "Merged", dot: "bg-done" },
 };
 
-export const homeGroups: Status[] = ["input", "ready", "working", "idle"];
+export const homeGroups: Status[] = ["input", "ready", "working", "setup", "idle"];
 
 export const agents: Record<Agent, string> = {
   "claude-code": "Claude Code",

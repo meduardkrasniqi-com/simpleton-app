@@ -7,6 +7,7 @@ import { createInterface } from "node:readline";
 import { app } from "electron";
 import { defaultModes, type Agent, type AgentSettings, type Entry, type EntryEvent, type Reply, type Workspace } from "@shared/types";
 import * as models from "../models";
+import * as pr from "../pr";
 import * as store from "../store";
 import { claude } from "./claude";
 import { codex } from "./codex";
@@ -100,7 +101,7 @@ export async function send(id: string, message: string) {
 
   await transcript(id);
   upsert(id, { id: randomUUID(), kind: "user", text });
-  await patch(id, { status: "working" });
+  await patch(id, { status: "working", setup: undefined });
 
   const fail = async (reason: string) => {
     upsert(id, { id: randomUUID(), kind: "error", text: reason });
@@ -200,7 +201,11 @@ export async function send(id: string, message: string) {
         failed = true;
         upsert(id, { id: randomUUID(), kind: "error", text: detail });
       }
-      if (store.get().workspaces.some((w) => w.id === id)) await patch(id, { status: failed ? "input" : "ready" });
+      if (store.get().workspaces.some((w) => w.id === id)) {
+        await patch(id, { status: failed ? "input" : "ready" });
+        const said = (transcripts.get(id) ?? []).flatMap((entry) => (entry.kind === "assistant" ? [entry.text] : [])).join("\n");
+        pr.sync(id, pr.findUrl(said)).catch(() => undefined);
+      }
       resolve();
     };
     child.on("error", (error) => done(null, error));

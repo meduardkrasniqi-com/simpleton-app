@@ -4,7 +4,6 @@ import * as agents from "./agents";
 import * as apps from "./apps";
 import * as auth from "./auth";
 import * as models from "./models";
-import * as pr from "./pr";
 import * as share from "./share";
 import * as store from "./store";
 import * as terminals from "./terminals";
@@ -33,6 +32,7 @@ export function registerIpc() {
   ipcMain.handle(channels.removeRepo, (_event, id: string) => workspaces.removeRepo(id));
   ipcMain.handle(channels.createWorkspace, (_event, input: NewWorkspace) => workspaces.createWorkspace(input));
   ipcMain.handle(channels.removeWorkspace, (_event, id: string) => workspaces.removeWorkspace(id));
+  ipcMain.handle(channels.retrySetup, (_event, id: string) => workspaces.retrySetup(id));
   ipcMain.handle(channels.changes, (_event, id: string) => workspaces.changes(id));
 
   ipcMain.handle(channels.file, (_event, id: string, path: string) => workspaces.file(id, path));
@@ -58,16 +58,6 @@ export function registerIpc() {
   ipcMain.handle(channels.stopApp, (_event, id: string) => apps.stop(id));
   ipcMain.handle(channels.share, (_event, id: string) => share.start(id));
   ipcMain.handle(channels.unshare, (_event, id: string) => share.stop(id));
-
-  ipcMain.handle(channels.createPr, async (_event, id: string) => {
-    const hasPr = !!store.get().workspaces.find((w) => w.id === id)?.prUrl;
-    try {
-      return await pr.create(id);
-    } catch (error) {
-      dialog.showErrorBox(hasPr ? "Couldn't push to the pull request" : "Couldn't create the pull request", error instanceof Error ? error.message : String(error));
-      return null;
-    }
-  });
 
   store.subscribe((state) => {
     BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channels.stateChanged, state));

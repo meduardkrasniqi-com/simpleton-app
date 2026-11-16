@@ -1,92 +1,76 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { shell } from "electron";
-import type { PrResult } from "@shared/types";
-import * as agents from "./agents";
+import { app } from "electron";
+import type { PrState, Workspace } from "@shared/types";
 import { shellEnv, which } from "./env";
-import * as git from "./git";
 import * as store from "./store";
 
 const exec = promisify(execFile);
 
-function message(error: unknown) {
-  const e = error as { stderr?: string; message?: string };
-  return (e.stderr || e.message || String(error)).trim();
+const pullUrl = /https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/g;
+
+const states: Record<string, PrState> = { OPEN: "open", MERGED: "merged", CLOSED: "closed" };
+
+const syncing = new Map<string, Promise<void>>();
+let timer: NodeJS.Timeout | null = null;
+let lastFocus = 0;
+
+export function findUrl(text: string) {
+  return text.match(pullUrl)?.pop();
 }
 
-export function githubRepo(remote: string) {
-  const match = /github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(remote.trim());
-  return match ? { owner: match[1], repo: match[2] } : null;
+async function patch(id: string, change: Partial<Workspace>) {
+  await store.update((s) => ({ ...s, workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, ...change } : w)) }));
 }
 
-export function compareUrl(remote: string, base: string, branch: string, title: string, body: string) {
-  const gh = githubRepo(remote);
-  if (!gh) return null;
-  const query = new URLSearchParams({ expand: "1", title, body });
-  return `https://github.com/${gh.owner}/${gh.repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(branch)}?${query}`;
-}
-
-async function summary(id: string) {
-  const entries = await agents.transcript(id);
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
-    if (entry.kind === "assistant") return entry.text;
+async function lookup(workspace: Workspace) {
+  const gh = await which("gh");
+  if (!gh) return undefined;
+  try {
+    const { stdout } = await exec(gh, ["pr", "view", workspace.branch, "--json", "url,state"], { cwd: workspace.path, env: await shellEnv(), timeout: 20000 });
+    const result = JSON.parse(stdout) as { url?: string; state?: string };
+    return result.url ? { url: result.url, state: states[result.state ?? ""] ?? "open" } : null;
+  } catch {
+    return null;
   }
-  return "";
 }
 
-export async function create(id: string): Promise<PrResult> {
+async function run(id: string, hint?: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
-  if (!workspace) throw new Error("Unknown workspace");
-  const cwd = workspace.path;
-  const title = workspace.task.split("\n")[0].trim().slice(0, 72) || workspace.branch;
-  const body = (await summary(id)) || workspace.task;
-
-  const dirty = !!(await git.git(cwd, ["status", "--porcelain"]));
-  if (dirty) {
-    await git.git(cwd, ["add", "-A"]);
-    await git.git(cwd, ["commit", "-m", title]).catch((error) => {
-      throw new Error(`Couldn't commit the changes.\n\n${message(error)}`);
-    });
-  }
-
-  const ahead = Number(await git.git(cwd, ["rev-list", "--count", `${workspace.base}..HEAD`]).catch(() => "0"));
-  if (!ahead) throw new Error("There are no changes to put in a pull request yet.");
-
-  if (workspace.prUrl && !dirty) {
-    const unpushed = await git.git(cwd, ["rev-list", "--count", "@{u}..HEAD"]).catch(() => "1");
-    if (unpushed === "0") throw new Error("Everything is already pushed to the pull request.");
-  }
-
-  const remote = await git.git(cwd, ["remote", "get-url", "origin"]).catch(() => "");
-  if (!remote) throw new Error("This repository has no origin remote to push to.");
-
-  await git.git(cwd, ["push", "-u", "origin", workspace.branch]).catch((error) => {
-    throw new Error(`Couldn't push ${workspace.branch}.\n\n${message(error)}`);
-  });
-
-  if (workspace.prUrl) return "pushed";
-
-  const gh = githubRepo(remote) ? await which("gh") : null;
-  if (gh) {
-    try {
-      const { stdout } = await exec(gh, ["pr", "create", "--base", workspace.base, "--head", workspace.branch, "--title", title, "--body", body], { cwd, env: await shellEnv() });
-      const url = /https:\/\/\S+\/pull\/\d+/.exec(stdout)?.[0];
-      if (url) return finish(id, url);
-    } catch (error) {
-      const url = /https:\/\/\S+\/pull\/\d+/.exec(message(error))?.[0];
-      if (url) return finish(id, url);
-    }
-  }
-
-  const url = compareUrl(remote, workspace.base, workspace.branch, title, body);
-  if (!url) throw new Error(`Pushed ${workspace.branch} to origin. Open the pull request on your git host.`);
-  await shell.openExternal(url);
-  return "opened";
+  if (!workspace) return;
+  const found = await lookup(workspace);
+  const url = found?.url ?? workspace.prUrl ?? (found === undefined ? hint : undefined);
+  const prState = found?.state ?? workspace.prState ?? (url ? "open" : undefined);
+  const current = store.get().workspaces.find((w) => w.id === id);
+  if (!current) return;
+  const change: Partial<Workspace> = {};
+  if (url && url !== current.prUrl) change.prUrl = url;
+  if (prState && prState !== current.prState) change.prState = prState;
+  const settled = current.status === "ready" || current.status === "idle" || current.status === "merged";
+  if (prState === "merged" && settled && current.status !== "merged") change.status = "merged";
+  if (prState && prState !== "merged" && current.status === "merged") change.status = "ready";
+  if (Object.keys(change).length) await patch(id, change);
 }
 
-async function finish(id: string, url: string): Promise<PrResult> {
-  await store.update((s) => ({ ...s, workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, prUrl: url } : w)) }));
-  await shell.openExternal(url);
-  return "created";
+export function sync(id: string, hint?: string) {
+  const pending = syncing.get(id);
+  if (pending) return pending;
+  const next = run(id, hint).finally(() => syncing.delete(id));
+  syncing.set(id, next);
+  return next;
+}
+
+async function syncAll() {
+  const active = store.get().workspaces.filter((w) => w.prState !== "merged" && w.prState !== "closed");
+  for (const w of active) await sync(w.id);
+}
+
+export function watch() {
+  syncAll().catch(() => undefined);
+  timer ??= setInterval(() => syncAll().catch(() => undefined), 60_000);
+  app.on("browser-window-focus", () => {
+    if (Date.now() - lastFocus < 10_000) return;
+    lastFocus = Date.now();
+    syncAll().catch(() => undefined);
+  });
 }
