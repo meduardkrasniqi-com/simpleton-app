@@ -10,6 +10,10 @@ const portFlag = /\b(vite|next|astro|nuxt|nuxi|ng serve|webpack serve|webpack-de
 
 const watchers = new Map<string, NodeJS.Timeout>();
 
+type Install = { done: Promise<number>; finish: (code: number) => void };
+
+const installs = new Map<string, Install>();
+
 function packageManager(dir: string) {
   if (existsSync(join(dir, "pnpm-lock.yaml"))) return "pnpm";
   if (existsSync(join(dir, "yarn.lock"))) return "yarn";
@@ -17,21 +21,29 @@ function packageManager(dir: string) {
   return "npm";
 }
 
-async function command(dir: string, port: number) {
-  type Manifest = { scripts?: Record<string, string>; dependencies?: object; devDependencies?: object };
-  let manifest: Manifest;
+type Manifest = { scripts?: Record<string, string>; dependencies?: object; devDependencies?: object };
+
+async function manifest(dir: string) {
   try {
-    manifest = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as Manifest;
+    return JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as Manifest;
   } catch {
     return null;
   }
-  const scripts = manifest.scripts ?? {};
-  const hasDeps = Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }).length > 0;
+}
+
+function needsInstall(dir: string, m: Manifest) {
+  return Object.keys({ ...m.dependencies, ...m.devDependencies }).length > 0 && !existsSync(join(dir, "node_modules"));
+}
+
+async function command(dir: string, port: number) {
+  const m = await manifest(dir);
+  if (!m) return null;
+  const scripts = m.scripts ?? {};
   const script = ["dev", "start", "serve"].find((name) => scripts[name]);
   if (!script) return null;
   const pm = packageManager(dir);
   const flag = portFlag.test(scripts[script]) ? (pm === "npm" ? ` -- --port ${port}` : ` --port ${port}`) : "";
-  const install = hasDeps && !existsSync(join(dir, "node_modules")) ? `${pm} install && ` : "";
+  const install = needsInstall(dir, m) ? `${pm} install && ` : "";
   return `${install}${pm} run ${script}${flag}`;
 }
 
@@ -108,6 +120,15 @@ terminals.onData(({ workspaceId, kind, data }) => {
 
 terminals.onExit((workspaceId, kind, code) => {
   if (kind !== "app") return;
+  const install = installs.get(workspaceId);
+  if (install) {
+    installs.delete(workspaceId);
+    install.finish(code);
+    const preview = store.get().previews[workspaceId];
+    if (preview && code !== 0) terminals.print(workspaceId, "app", `\n[install exited with code ${code}]\n`);
+    if (preview?.state === "installing") patch(workspaceId, { state: code === 0 ? "stopped" : "failed" });
+    return;
+  }
   clearInterval(watchers.get(workspaceId));
   const preview = store.get().previews[workspaceId];
   if (!preview) return;
@@ -115,19 +136,52 @@ terminals.onExit((workspaceId, kind, code) => {
   patch(workspaceId, { state: preview.state === "stopped" || code === 0 || code === 143 ? "stopped" : "failed" });
 });
 
+export async function install(id: string) {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  if (!workspace || installs.has(id) || store.get().previews[id]) return;
+  const m = await manifest(workspace.path);
+  if (!m || !needsInstall(workspace.path, m)) return;
+  const run = `${packageManager(workspace.path)} install`;
+  let finish: (code: number) => void = () => undefined;
+  const done = new Promise<number>((resolve) => (finish = resolve));
+  installs.set(id, { done, finish });
+  await set(id, { state: "installing", port: 0, url: "" });
+  terminals.clear(id, "app");
+  terminals.print(id, "app", `$ ${run}\n`);
+  try {
+    await terminals.spawn(id, "app", ["-ilc", run]);
+  } catch {
+    installs.delete(id);
+    finish(1);
+    await patch(id, { state: "failed" });
+  }
+}
+
 export async function start(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace) throw new Error("Unknown workspace");
-  terminals.kill(id, "app");
-  terminals.clear(id, "app");
+  const install = installs.get(id);
+  if (!install) {
+    terminals.kill(id, "app");
+    terminals.clear(id, "app");
+  }
   const port = await randomPort();
-  const run = await command(workspace.path, port);
-  if (!run) {
+  const url = `http://localhost:${port}`;
+  if (!(await command(workspace.path, port))) {
     terminals.print(id, "app", "No dev, start or serve script found in package.json.\n");
-    await set(id, { state: "failed", port, url: `http://localhost:${port}` });
+    await set(id, { state: "failed", port, url });
     return;
   }
-  await set(id, { state: "starting", port, url: `http://localhost:${port}` });
+  await set(id, { state: "starting", port, url });
+  if (install) {
+    const code = await install.done;
+    const current = store.get().previews[id];
+    if (current?.state !== "starting" || current.port !== port) return;
+    if (code !== 0) return void (await patch(id, { state: "failed" }));
+    terminals.print(id, "app", "\n");
+  }
+  const run = await command(workspace.path, port);
+  if (!run) return void (await patch(id, { state: "failed" }));
   terminals.print(id, "app", `$ PORT=${port} ${run}\n`);
   await terminals.spawn(id, "app", ["-ilc", run], { PORT: String(port) });
   watch(id, port);
@@ -141,6 +195,8 @@ export async function stop(id: string) {
 
 export async function forget(id: string) {
   clearInterval(watchers.get(id));
+  installs.get(id)?.finish(-1);
+  installs.delete(id);
   terminals.forget(id);
   if (store.get().previews[id]) await set(id, null);
 }

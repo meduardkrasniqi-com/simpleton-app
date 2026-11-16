@@ -30,7 +30,10 @@ export type Workspace = {
   prUrl?: string;
   prState?: PrState;
   setup?: Setup;
+  queue?: Queued[];
 };
+
+export type Queued = { id: string; text: string };
 
 export type PrState = "open" | "merged" | "closed";
 
@@ -147,7 +150,7 @@ export type TermSnapshot = {
 };
 
 export type Preview = {
-  state: "starting" | "running" | "stopped" | "failed";
+  state: "installing" | "starting" | "running" | "stopped" | "failed";
   port: number;
   url: string;
 };
@@ -186,6 +189,13 @@ export type Auth = {
   error?: string;
 };
 
+export type Command = {
+  name: string;
+  description: string;
+  hint: string;
+  origin: "project" | "user" | "plugin" | "builtin";
+};
+
 export type NewWorkspace = {
   repoId: string;
   task: string;
@@ -206,12 +216,17 @@ export type Api = {
   changes: (id: string) => Promise<FileChange[]>;
   file: (id: string, path: string) => Promise<FileView>;
   files: (id: string) => Promise<string[]>;
+  repoFiles: (repoId: string) => Promise<string[]>;
+  openImage: (path: string) => Promise<void>;
+  commands: (agent: Agent, repoId: string) => Promise<Command[]>;
   setTheme: (theme: Theme) => Promise<void>;
   models: () => Promise<ModelCatalog>;
   configure: (id: string, settings: AgentSettings) => Promise<void>;
   transcript: (id: string) => Promise<Entry[]>;
   onEntry: (listener: (event: EntryEvent) => void) => () => void;
   send: (id: string, text: string) => Promise<void>;
+  unqueue: (id: string, queuedId: string) => Promise<void>;
+  sendNow: (id: string, queuedId: string) => Promise<void>;
   stop: (id: string) => Promise<void>;
   respond: (id: string, entryId: string, reply: Reply) => Promise<void>;
   openTerminal: (id: string, kind: TermKind, cols: number, rows: number) => Promise<TermSnapshot>;
@@ -241,12 +256,17 @@ export const channels = {
   changes: "workspace:changes",
   file: "workspace:file",
   files: "workspace:files",
+  repoFiles: "repo:files",
+  openImage: "image:open",
+  commands: "agent:commands",
   setTheme: "app:theme",
   models: "agent:models",
   configure: "agent:configure",
   transcript: "agent:transcript",
   entry: "agent:entry",
   send: "agent:send",
+  unqueue: "agent:unqueue",
+  sendNow: "agent:send-now",
   stop: "agent:stop",
   respond: "agent:respond",
   openTerminal: "terminal:open",

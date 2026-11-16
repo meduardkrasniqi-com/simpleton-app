@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-export type FileLinks = { resolve: (text: string) => string | null; open: (path: string) => void };
+export type FileLinks = { root?: string; resolve: (text: string) => string | null; open: (path: string) => void };
 
 export const FileLinksContext = createContext<FileLinks | null>(null);
 

@@ -1,49 +1,9 @@
 import { FileText, Search } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Highlight, match } from "@/components/Fuzzy";
 import { cn } from "@/lib/utils";
 
 const limit = 60;
-
-function match(query: string, path: string) {
-  const lower = path.toLowerCase();
-  const nameStart = lower.lastIndexOf("/") + 1;
-  const positions: number[] = [];
-  let score = 0;
-  let from = 0;
-  let previous = -2;
-  for (const char of query) {
-    const at = lower.indexOf(char, from);
-    if (at === -1) return null;
-    positions.push(at);
-    if (at === previous + 1) score += 8;
-    if (at >= nameStart) score += 4;
-    if (at === nameStart || "/-_. ".includes(lower[at - 1] ?? "/")) score += 6;
-    score -= Math.min(at - from, 10) * 0.5;
-    previous = at;
-    from = at + 1;
-  }
-  const name = lower.slice(nameStart);
-  if (name === query) score += 100;
-  else if (name.startsWith(query)) score += 40;
-  score -= path.length * 0.05;
-  return { score, positions };
-}
-
-function Highlight({ text, offset, positions }: { text: string; offset: number; positions: Set<number> }) {
-  return (
-    <>
-      {[...text].map((char, i) =>
-        positions.has(i + offset) ? (
-          <span key={i} className="font-semibold text-ink">
-            {char}
-          </span>
-        ) : (
-          char
-        ),
-      )}
-    </>
-  );
-}
 
 export function FileSearch({ workspaceId, onOpen, onClose }: { workspaceId: string; onOpen: (path: string) => void; onClose: () => void }) {
   const [files, setFiles] = useState<string[] | null>(null);

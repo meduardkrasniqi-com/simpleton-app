@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, readdir } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { app } from "electron";
@@ -11,6 +11,7 @@ import * as share from "./share";
 import * as store from "./store";
 
 const worktreesDir = () => join(app.getPath("userData"), "worktrees");
+const trashDir = () => join(worktreesDir(), ".trash");
 
 const stopwords = new Set(["a", "an", "the", "to", "of", "for", "in", "on", "at", "and", "or", "with", "from", "into", "is", "are", "be", "it", "this", "that", "please"]);
 
@@ -132,6 +133,7 @@ async function setup(id: string) {
 
     step = "agent";
     await patch(id, { setup: { step } });
+    apps.install(id).catch(() => undefined);
     agents.send(id, workspace.task).catch(() => undefined);
   } catch (error) {
     if (find(id)) await patch(id, { setup: { step, error: reason(error) } });
@@ -158,9 +160,13 @@ export async function removeWorkspace(id: string) {
   await agents.forget(id);
   await apps.forget(id);
   await share.stop(id);
-  const repo = repos.find((r) => r.id === workspace.repoId);
-  if (repo) await git.removeWorktree(repo.path, workspace.path, workspace.branch);
   await store.update((s) => ({ ...s, workspaces: s.workspaces.filter((w) => w.id !== id) }));
+  const repo = repos.find((r) => r.id === workspace.repoId);
+  if (repo) git.removeWorktree(repo.path, workspace.path, workspace.branch, join(trashDir(), randomUUID())).catch(() => undefined);
+}
+
+export function emptyTrash() {
+  rm(trashDir(), { recursive: true, force: true }).catch(() => undefined);
 }
 
 export async function file(id: string, path: string) {
@@ -173,6 +179,12 @@ export async function files(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace || workspace.status === "setup") return [];
   return git.listFiles(workspace.path);
+}
+
+export async function repoFiles(repoId: string) {
+  const repo = store.get().repos.find((r) => r.id === repoId);
+  if (!repo) return [];
+  return git.listFiles(repo.path).catch(() => []);
 }
 
 export async function changes(id: string) {

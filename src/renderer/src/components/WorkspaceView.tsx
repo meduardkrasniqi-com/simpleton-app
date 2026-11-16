@@ -1,9 +1,10 @@
-import { ArrowUp, Bot, CircleAlert, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, CircleAlert, CornerDownRight, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { modes, type Entry, type FileChange, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
 import { Markdown } from "@/components/Markdown";
+import { PromptBox, Tokens } from "@/components/PromptBox";
 import { AnsweredQuestion, ApprovalCard, PlanCard, QuestionCard } from "@/components/Prompts";
 import { RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { WorkspaceSetup } from "@/components/WorkspaceSetup";
@@ -59,7 +60,11 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
 function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace["agent"]; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
   switch (entry.kind) {
     case "user":
-      return <p className="selectable ml-auto w-fit max-w-[85%] whitespace-pre-wrap rounded-2xl bg-stage px-4 py-2.5 text-[14px] leading-[1.5]">{entry.text}</p>;
+      return (
+        <p className="selectable ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-stage px-4 py-2.5 text-[14px] leading-[1.5]">
+          <Tokens text={entry.text} />
+        </p>
+      );
     case "assistant":
       return <Markdown text={entry.text} />;
     case "tool":
@@ -98,11 +103,44 @@ const placeholders: Record<string, string> = {
   plan: "Describe what to change",
 };
 
+function Queue({ workspace, onEdit }: { workspace: Workspace; onEdit: (text: string) => void }) {
+  const queue = workspace.queue ?? [];
+  if (!queue.length) return null;
+  return (
+    <ul className="mx-3 rounded-t-lg border border-b-0 border-ink/[0.08] bg-panel p-1">
+      {queue.map((item) => (
+        <li key={item.id} className="group flex h-8 animate-fade items-center gap-2 rounded-md pl-2 pr-1 text-[13px] hover:bg-ink/[0.04]">
+          <CornerDownRight className="size-3.5 shrink-0 text-mute" />
+          <button
+            type="button"
+            title={item.text}
+            onClick={() => {
+              window.simpleton.unqueue(workspace.id, item.id);
+              onEdit(item.text);
+            }}
+            className="min-w-0 flex-1 truncate text-left text-soft hover:text-ink"
+          >
+            <Tokens text={item.text} />
+          </button>
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <button type="button" onClick={() => window.simpleton.sendNow(workspace.id, item.id)} aria-label="Send now" title="Send now" className={cn(ghost, "size-6")}>
+              <ArrowUp className="size-3.5" />
+            </button>
+            <button type="button" onClick={() => window.simpleton.unqueue(workspace.id, item.id)} aria-label="Remove from queue" title="Remove" className={cn(ghost, "size-6 hover:text-minus")}>
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initial: string; pending?: Entry }) {
   const [text, setText] = useState(initial);
   const input = useRef<HTMLTextAreaElement>(null);
   const working = workspace.status === "working" || (workspace.status === "input" && !!pending);
-  const canSend = !!text.trim() && (!working || !!pending);
+  const canSend = !!text.trim();
   const choices = useAgentChoices(workspace.agent, { model: workspace.model, effort: workspace.effort, mode: workspace.mode }, (settings) => window.simpleton.configure(workspace.id, settings));
 
   useEffect(() => {
@@ -116,6 +154,11 @@ function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initi
     setText("");
   };
 
+  const edit = (queued: string) => {
+    setText((current) => (current.trim() ? `${queued}\n\n${current}` : queued));
+    input.current?.focus();
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
@@ -124,29 +167,35 @@ function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initi
   };
 
   return (
-    <div className="rounded-xl border border-ink/[0.1] bg-raised p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-ink/[0.2]">
-      <textarea
-        ref={input}
+    <div>
+      <Queue workspace={workspace} onEdit={edit} />
+      <PromptBox
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={setText}
         onKeyDown={onKeyDown}
-        placeholder={pending ? placeholders[pending.kind] : `Message ${agents[workspace.agent]}`}
-        rows={1}
-        className="block max-h-40 min-h-6 w-full resize-none bg-transparent px-1 text-[14px] leading-[1.5] outline-none [field-sizing:content] placeholder:text-mute"
-      />
-      <div className="-ml-1 mt-2 flex items-center gap-2">
-        <RunSettings choices={choices} side="top" />
-        <span className="ml-auto" />
-        {working && !canSend ? (
-          <button type="button" onClick={() => window.simpleton.stop(workspace.id)} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface">
-            <Square className="size-3 fill-current" />
-          </button>
-        ) : (
-          <button type="button" onClick={submit} disabled={!canSend} aria-label="Send" className={cn("grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface transition-opacity", !canSend && "opacity-30")}>
-            <ArrowUp className="size-4" />
-          </button>
-        )}
-      </div>
+        placeholder={pending ? placeholders[pending.kind] : working ? "Queue a follow-up" : `Message ${agents[workspace.agent]}`}
+        inputRef={input}
+        side="top"
+        source={`${workspace.id}:${workspace.agent}`}
+        files={() => window.simpleton.files(workspace.id)}
+        commands={workspace.agent === "claude-code" && !pending ? () => window.simpleton.commands(workspace.agent, workspace.repoId) : undefined}
+        className="max-h-40 min-h-6"
+      >
+        <div className="-ml-1 mt-2 flex items-center gap-2">
+          <RunSettings choices={choices} side="top" />
+          <span className="ml-auto" />
+          {working && (
+            <button type="button" onClick={() => window.simpleton.stop(workspace.id)} aria-label="Stop" title="Stop" className={cn("grid size-7 shrink-0 place-items-center rounded-md", canSend ? "text-soft hover:bg-ink/[0.06] hover:text-ink" : "bg-ink text-surface")}>
+              <Square className="size-3 fill-current" />
+            </button>
+          )}
+          {(!working || canSend) && (
+            <button type="button" onClick={submit} disabled={!canSend} aria-label={working && !pending ? "Queue" : "Send"} className={cn("grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface transition-opacity", !canSend && "opacity-30")}>
+              <ArrowUp className="size-4" />
+            </button>
+          )}
+        </div>
+      </PromptBox>
     </div>
   );
 }
@@ -293,6 +342,9 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
   const entries = useTranscript(workspace.id);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const [atBottom, setAtBottom] = useState(true);
+  const [pinned, setPinned] = useState<string | null>(null);
+  const lastUser = useRef<string | undefined>(undefined);
 
   const refresh = useCallback(() => {
     window.simpleton
@@ -315,14 +367,42 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
     return () => clearTimeout(timer);
   }, [settled, workspace.status, refresh]);
 
+  const measure = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setAtBottom(stick.current);
+    const top = el.getBoundingClientRect().top;
+    let current: string | null = null;
+    for (const node of el.querySelectorAll<HTMLElement>("[data-user]")) {
+      const rect = node.getBoundingClientRect();
+      if (rect.top >= top) break;
+      current = rect.bottom < top + 8 ? node.dataset.user! : null;
+    }
+    setPinned(current);
+  }, []);
+
   useLayoutEffect(() => {
     const el = scroller.current;
+    const latest = entries?.findLast((e) => e.kind === "user")?.id;
+    if (lastUser.current !== undefined && latest !== lastUser.current) stick.current = true;
+    if (entries) lastUser.current = latest ?? "";
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [entries, workspace.status]);
+    measure();
+  }, [entries, workspace.status, measure]);
 
-  const onScroll = () => {
+  const toBottom = () => {
     const el = scroller.current;
-    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (!el) return;
+    stick.current = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  };
+
+  const toEntry = (id: string) => {
+    const el = scroller.current;
+    const node = el?.querySelector<HTMLElement>(`[data-user="${id}"]`);
+    if (!el || !node) return;
+    el.scrollTo({ top: el.scrollTop + node.getBoundingClientRect().top - el.getBoundingClientRect().top - 32, behavior: "smooth" });
   };
 
   const [tree, setTree] = useState<string[]>([]);
@@ -344,9 +424,10 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
 
   const openRef = useRef(openFile);
   openRef.current = openFile;
-  const links = useMemo(() => ({ resolve: resolver(workspace.path, tree), open: (path: string) => openRef.current(path) }), [workspace.path, tree]);
+  const links = useMemo(() => ({ root: workspace.path, resolve: resolver(workspace.path, tree), open: (path: string) => openRef.current(path) }), [workspace.path, tree]);
 
   const last = entries?.[entries.length - 1];
+  const pinnedEntry = pinned ? entries?.find((e) => e.id === pinned) : undefined;
   const pending = entries?.find(isPending);
   const thinking = workspace.status === "working" && !pending && !(last?.kind === "tool" && last.state === "running");
   const reply = (entryId: string) => (value: Reply) => window.simpleton.respond(workspace.id, entryId, value);
@@ -384,8 +465,22 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
             </div>
           )}
           <FileLinksContext.Provider value={links}>
-            <div className={cn("flex min-h-0 flex-1 flex-col", tabs.active !== "chat" && "hidden")}>
-              <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
+            <div className={cn("relative flex min-h-0 flex-1 flex-col", tabs.active !== "chat" && "hidden")}>
+              {pinnedEntry?.kind === "user" && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-linear-to-b from-surface from-60% to-transparent px-8 pb-6 pt-3">
+                  <div className="mx-auto flex max-w-[720px]">
+                    <button
+                      type="button"
+                      onClick={() => toEntry(pinnedEntry.id)}
+                      title={pinnedEntry.text}
+                      className="pointer-events-auto ml-auto line-clamp-2 w-fit max-w-[85%] whitespace-pre-wrap rounded-2xl bg-stage px-4 py-2.5 text-left text-[14px] leading-[1.5] shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:bg-[color-mix(in_oklab,var(--color-ink)_7%,var(--color-stage))]"
+                    >
+                      {pinnedEntry.text}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
                 <div className="mx-auto max-w-[720px]">
                   {workspace.status === "setup" && !entries?.length && (
                     <>
@@ -394,14 +489,19 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                     </>
                   )}
                   {entries?.map((entry, i) => (
-                    <div key={entry.id} className={gap(entries[i - 1], entry)}>
+                    <div key={entry.id} data-user={entry.kind === "user" ? entry.id : undefined} className={gap(entries[i - 1], entry)}>
                       <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />
                     </div>
                   ))}
                   {thinking && <LoaderCircle className={cn("size-3.5 animate-spin text-mute", entries?.length ? "mt-4" : "")} />}
                 </div>
               </div>
-              <div className="shrink-0 px-8 pb-5">
+              <div className="relative shrink-0 px-8 pb-5">
+                {!atBottom && (
+                  <button type="button" onClick={toBottom} aria-label="Jump to latest" className="absolute bottom-full left-1/2 mb-3 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-ink/[0.1] bg-raised text-soft shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:text-ink">
+                    <ArrowDown className="size-4" />
+                  </button>
+                )}
                 <div className="mx-auto max-w-[720px]">{entries && workspace.status !== "setup" && <FollowUp workspace={workspace} pending={pending} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
               </div>
             </div>

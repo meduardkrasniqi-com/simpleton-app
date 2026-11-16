@@ -1,6 +1,6 @@
 import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 
 const run = (cmd, env = {}) => execSync(cmd, { stdio: "inherit", env: { ...process.env, ...env } });
 const read = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -19,6 +19,13 @@ if (!process.argv.includes("--skip-build")) {
   run("npx electron-builder --mac --publish never", {
     APPLE_KEYCHAIN_PROFILE: process.env.APPLE_KEYCHAIN_PROFILE || "simpleton",
   });
+}
+
+for (const dir of ["dist/mac", "dist/mac-arm64"]) {
+  try {
+    execFileSync("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-u", `${dir}/${productName}.app`], { stdio: "ignore" });
+  } catch {}
+  rmSync(dir, { recursive: true, force: true });
 }
 
 const entries = archs.flatMap((arch) => ["zip", "dmg"].map((ext) => file(arch, ext)));

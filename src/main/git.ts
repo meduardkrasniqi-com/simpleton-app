@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { mkdir, readFile, rename, rm } from "node:fs/promises";
+import { dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { DiffLine, FileChange, FileView } from "@shared/types";
 
@@ -62,9 +62,11 @@ export async function remoteBase(path: string) {
   return (await refExists(path, ref)) ? ref : null;
 }
 
-export async function removeWorktree(repo: string, target: string, branch: string) {
+export async function removeWorktree(repo: string, target: string, branch: string, trash?: string) {
+  const moved = trash ? await mkdir(dirname(trash), { recursive: true }).then(() => rename(target, trash)).then(() => true, () => false) : false;
   await git(repo, ["worktree", "remove", "--force", target]).catch(() => git(repo, ["worktree", "prune"]));
   await git(repo, ["branch", "-D", branch]).catch(() => undefined);
+  if (moved && trash) await rm(trash, { recursive: true, force: true }).catch(() => undefined);
 }
 
 async function lineCount(file: string) {

@@ -1,6 +1,7 @@
 import { ArrowUp, Bot, FolderGit2 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Agent, AgentSettings, Repo, Workspace } from "@shared/types";
+import { PromptBox } from "@/components/PromptBox";
 import { lastMode, rememberMode, RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { useModels } from "@/lib/useModels";
 import { agents, cn } from "@/lib/utils";
@@ -65,16 +66,18 @@ export function Composer({ repos, repoId, tall, onCreated }: { repos: Repo[]; re
 
   return (
     <div>
-      <div className="rounded-xl border border-ink/[0.1] bg-raised p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-ink/[0.2]">
-        <textarea
-          ref={input}
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Describe a task"
-          rows={2}
-          className={cn("block w-full resize-none bg-transparent px-1 text-[14px] leading-[1.5] outline-none [field-sizing:content] placeholder:text-mute", tall ? "max-h-[50vh] min-h-[9em]" : "max-h-60 min-h-[3em]")}
-        />
+      <PromptBox
+        value={task}
+        onChange={setTask}
+        onKeyDown={onKeyDown}
+        placeholder="Describe a task"
+        inputRef={input}
+        side="bottom"
+        source={`${repo}:${agent}`}
+        files={() => window.simpleton.repoFiles(repo)}
+        commands={agent === "claude-code" ? () => window.simpleton.commands(agent, repo) : undefined}
+        className={tall ? "max-h-[50vh] min-h-[9em]" : "max-h-60 min-h-[3em]"}
+      >
         <div className="-ml-1 mt-2 flex items-center gap-2">
           <RunSettings choices={choices} />
           <button
@@ -87,7 +90,7 @@ export function Composer({ repos, repoId, tall, onCreated }: { repos: Repo[]; re
             <ArrowUp className="size-4" />
           </button>
         </div>
-      </div>
+      </PromptBox>
       {error && <p className="selectable mt-2 text-[12.5px] text-minus">{error}</p>}
     </div>
   );

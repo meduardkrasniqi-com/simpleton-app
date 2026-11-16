@@ -21,7 +21,7 @@ const missing: Record<Agent, string> = {
   codex: "Codex isn't installed. Install it with `npm install -g @openai/codex`, run `codex` once to sign in, then try again.",
 };
 
-type Run = { child: ChildProcess; stopped: boolean; driver: Driver; pending: Map<string, Pending>; write: (message: Json) => void };
+type Run = { child: ChildProcess; stopped: boolean; resume?: boolean; driver: Driver; pending: Map<string, Pending>; write: (message: Json) => void };
 
 const runs = new Map<string, Run>();
 const transcripts = new Map<string, Entry[]>();
@@ -97,7 +97,10 @@ export async function send(id: string, message: string) {
   const text = message.trim();
   if (!workspace) throw new Error("Unknown workspace");
   if (!text) return;
-  if (runs.has(id)) throw new Error("The agent is still working");
+  if (runs.has(id)) {
+    await patch(id, { queue: [...(workspace.queue ?? []), { id: randomUUID(), text }] });
+    return;
+  }
 
   await transcript(id);
   upsert(id, { id: randomUUID(), kind: "user", text });
@@ -205,6 +208,7 @@ export async function send(id: string, message: string) {
         await patch(id, { status: failed ? "input" : "ready" });
         const said = (transcripts.get(id) ?? []).flatMap((entry) => (entry.kind === "assistant" ? [entry.text] : [])).join("\n");
         pr.sync(id, pr.findUrl(said)).catch(() => undefined);
+        if (run.resume || (!run.stopped && !failed)) drain(id).catch(() => undefined);
       }
       resolve();
     };
@@ -222,6 +226,30 @@ function kill(run: Run) {
   } catch {
     run.child.kill("SIGTERM");
   }
+}
+
+const queued = (id: string) => store.get().workspaces.find((w) => w.id === id)?.queue ?? [];
+
+async function drain(id: string) {
+  const [next, ...rest] = queued(id);
+  if (!next || runs.has(id)) return;
+  await patch(id, { queue: rest.length ? rest : undefined });
+  await send(id, next.text);
+}
+
+export async function unqueue(id: string, queuedId: string) {
+  const rest = queued(id).filter((q) => q.id !== queuedId);
+  await patch(id, { queue: rest.length ? rest : undefined });
+}
+
+export async function sendNow(id: string, queuedId: string) {
+  const item = queued(id).find((q) => q.id === queuedId);
+  if (!item) return;
+  await patch(id, { queue: [item, ...queued(id).filter((q) => q.id !== queuedId)] });
+  const run = runs.get(id);
+  if (!run) return drain(id);
+  run.resume = true;
+  kill(run);
 }
 
 export function stop(id: string) {

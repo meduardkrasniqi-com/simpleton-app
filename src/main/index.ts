@@ -2,12 +2,14 @@ import { join } from "node:path";
 import { app, BrowserWindow, nativeTheme, shell } from "electron";
 import * as agents from "./agents";
 import * as auth from "./auth";
+import * as images from "./images";
 import { registerIpc } from "./ipc";
 import { setMenu } from "./menu";
 import * as models from "./models";
 import * as pr from "./pr";
 import * as workspaces from "./workspaces";
 import * as share from "./share";
+import * as spotlight from "./spotlight";
 import * as terminals from "./terminals";
 import * as store from "./store";
 import * as updates from "./updates";
@@ -62,6 +64,7 @@ function focusWindow() {
 
 app.setName(app.isPackaged ? "Simpleton" : "Simpleton Dev");
 auth.registerScheme();
+images.registerScheme();
 
 app.on("open-url", (event, url) => {
   event.preventDefault();
@@ -78,15 +81,18 @@ app.whenReady().then(async () => {
   if (!app.isPackaged && process.platform === "darwin") {
     app.dock?.setIcon(join(__dirname, "../../build/icon.png"));
   }
+  images.handle();
   nativeTheme.themeSource = (await store.load()).theme;
   await agents.recover();
   await workspaces.recoverSetups();
+  workspaces.emptyTrash();
   registerIpc();
   pr.watch();
   models.catalog().catch(() => undefined);
   setMenu();
   createWindow();
   updates.init();
+  spotlight.register().catch(() => undefined);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

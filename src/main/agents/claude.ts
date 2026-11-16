@@ -1,6 +1,6 @@
 import { isAbsolute, relative } from "node:path";
 import type { DiffLine, Detail, Entry, Question, Reply } from "@shared/types";
-import { command, list, record, shorten, text, type Answer, type Driver, type Json, type Pending, type Update } from "./driver";
+import { command, instructions, list, record, shorten, text, type Answer, type Driver, type Json, type Pending, type Update } from "./driver";
 
 type Tool = Extract<Entry, { kind: "tool" }>;
 
@@ -166,6 +166,8 @@ export const claude: Driver = {
     "stdio",
     "--permission-mode",
     mode || "auto",
+    "--append-system-prompt",
+    instructions,
     ...(allow?.length ? ["--settings", JSON.stringify({ permissions: { allow } })] : []),
     ...(model ? ["--model", model] : []),
     ...(effort ? ["--effort", effort] : []),

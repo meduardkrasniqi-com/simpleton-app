@@ -1,6 +1,7 @@
 import { memo, useMemo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { imagePath, mentionedImages, Shot } from "@/components/Shot";
 import { useFileLinks } from "@/lib/fileLinks";
 import { languageForFence, tokenStyle, useTokens } from "@/lib/highlight";
 
@@ -95,8 +96,16 @@ function Highlighted({ code, language }: { code: string; language: string | null
   );
 }
 
+function Image({ src, alt }: { src?: string; alt?: string }) {
+  const links = useFileLinks();
+  const path = typeof src === "string" ? imagePath(src, links?.root) : null;
+  if (!path) return alt ? <span className="text-mute">{alt}</span> : null;
+  return <Shot path={path} alt={alt} className="my-1 mr-2" />;
+}
+
 const components: Components = {
   p: ({ children }) => <p className="my-3 first:mt-0 last:mb-0">{children}</p>,
+  img: ({ src, alt }) => <Image src={typeof src === "string" ? src : undefined} alt={alt} />,
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
   a: ({ href, children }) => <Anchor href={href}>{children}</Anchor>,
   ul: ({ children }) => <ul className="my-3 list-disc space-y-1 pl-5 first:mt-0 last:mb-0 marker:text-ink/30">{children}</ul>,
@@ -128,11 +137,19 @@ const components: Components = {
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
   const links = useFileLinks();
   const plugins = useMemo(() => (links ? [remarkGfm, fileLinks(links.resolve)] : [remarkGfm]), [links]);
+  const extra = useMemo(() => mentionedImages(text, links?.root), [text, links?.root]);
   return (
     <div className="selectable text-[14px] leading-[1.6]">
       <ReactMarkdown remarkPlugins={plugins} components={components}>
         {text}
       </ReactMarkdown>
+      {extra.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {extra.map((path) => (
+            <Shot key={path} path={path} quiet />
+          ))}
+        </div>
+      )}
     </div>
   );
 });

@@ -21,6 +21,8 @@ export type Driver = {
   };
 };
 
+export const instructions = "You are running inside Simpleton, a desktop app that renders your replies as Markdown. When the user asks to see a screenshot or image, or when showing one would help, embed it with Markdown image syntax and its absolute path, for example ![Home page](/tmp/shots/home.png). Simpleton shows it inline. Do not just tell the user where the file is.";
+
 export const text = (value: unknown) => (typeof value === "string" ? value : "");
 
 export const record = (value: unknown): Json => (value && typeof value === "object" && !Array.isArray(value) ? (value as Json) : {});

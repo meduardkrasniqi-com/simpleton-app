@@ -1,6 +1,6 @@
 import { isAbsolute, relative } from "node:path";
 import type { Entry, ToolState } from "@shared/types";
-import { command, list, record, shorten, text, type Driver, type Json, type Update } from "./driver";
+import { command, instructions, list, record, shorten, text, type Driver, type Json, type Update } from "./driver";
 
 const sandboxes = new Set(["read-only", "workspace-write", "danger-full-access"]);
 
@@ -53,6 +53,8 @@ export const codex: Driver = {
     ...(mode === "read-only" || mode === "danger-full-access" ? [] : ["-c", "sandbox_workspace_write.network_access=true"]),
     ...(model ? ["--model", model] : []),
     ...(effort ? ["-c", `model_reasoning_effort="${effort}"`] : []),
+    "-c",
+    `developer_instructions=${JSON.stringify(instructions)}`,
     "--cd",
     cwd,
     ...(sessionId ? ["resume", sessionId] : []),

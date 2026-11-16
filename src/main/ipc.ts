@@ -1,8 +1,10 @@
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { channels, type AgentSettings, type NewWorkspace, type Reply, type TermKind, type Theme } from "@shared/types";
+import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as auth from "./auth";
+import * as commands from "./commands";
+import * as images from "./images";
 import * as models from "./models";
 import * as share from "./share";
 import * as store from "./store";
@@ -37,6 +39,12 @@ export function registerIpc() {
 
   ipcMain.handle(channels.file, (_event, id: string, path: string) => workspaces.file(id, path));
   ipcMain.handle(channels.files, (_event, id: string) => workspaces.files(id));
+  ipcMain.handle(channels.openImage, (_event, path: string) => images.open(path));
+  ipcMain.handle(channels.repoFiles, (_event, repoId: string) => workspaces.repoFiles(repoId));
+  ipcMain.handle(channels.commands, (_event, agent: Agent, repoId: string) => {
+    const repo = store.get().repos.find((r) => r.id === repoId);
+    return repo ? commands.commands(agent, repo.path) : [];
+  });
   ipcMain.handle(channels.setTheme, async (_event, theme: Theme) => {
     if (!["system", "light", "dark"].includes(theme)) return;
     nativeTheme.themeSource = theme;
@@ -49,6 +57,8 @@ export function registerIpc() {
     agents.send(id, text).catch(() => undefined);
   });
   ipcMain.handle(channels.stop, (_event, id: string) => agents.stop(id));
+  ipcMain.handle(channels.unqueue, (_event, id: string, queuedId: string) => agents.unqueue(id, queuedId));
+  ipcMain.handle(channels.sendNow, (_event, id: string, queuedId: string) => agents.sendNow(id, queuedId));
   ipcMain.handle(channels.respond, (_event, id: string, entryId: string, reply: Reply) => agents.respond(id, entryId, reply));
 
   ipcMain.handle(channels.openTerminal, (_event, id: string, kind: TermKind, cols: number, rows: number) => terminals.open(id, kind, cols, rows));
