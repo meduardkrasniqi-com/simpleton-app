@@ -148,8 +148,10 @@ export async function send(id: string, message: string) {
     } else if ("settled" in update) {
       [update.settled, `${update.settled}:ask`, `${update.settled}:plan`].forEach(drop);
     } else if ("request" in update) {
-      run.pending.set(update.request.entry.id, update.request);
-      upsert(id, update.request.entry);
+      const mode = store.get().workspaces.find((w) => w.id === id)?.mode || requested;
+      const request = driver.streaming ? driver.streaming.prepare(update.request, mode) : update.request;
+      run.pending.set(request.entry.id, request);
+      upsert(id, request.entry);
       patch(id, { status: "input" });
     } else if ("cancel" in update) {
       [...run.pending].filter(([, pending]) => pending.requestId === update.cancel).forEach(([key]) => drop(key));

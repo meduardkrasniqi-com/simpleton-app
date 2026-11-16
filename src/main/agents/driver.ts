@@ -16,6 +16,7 @@ export type Driver = {
   streaming?: {
     open: (text: string) => Json[];
     answer: (pending: Pending, reply: Reply) => Answer;
+    prepare: (pending: Pending, mode: string) => Pending;
     setMode: (mode: string) => Json;
   };
 };

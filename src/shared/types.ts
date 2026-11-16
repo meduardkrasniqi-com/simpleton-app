@@ -86,6 +86,7 @@ export type Detail = { kind: "command"; text: string } | { kind: "diff"; lines: 
 
 export type Approval = {
   detail?: Detail;
+  reason?: string;
   always?: string;
   state: "pending" | "allowed" | "always" | "denied" | "cancelled";
 };

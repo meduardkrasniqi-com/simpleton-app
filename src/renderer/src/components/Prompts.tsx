@@ -55,6 +55,7 @@ export function ApprovalCard({ entry, icon: Icon, onReply }: { entry: ToolEntry;
           </span>
         )}
       </div>
+      {entry.approval?.reason && <p className="selectable px-3.5 pt-1.5 text-[12.5px] leading-[1.5] text-mute">{entry.approval.reason}</p>}
       {detail && (
         <div className="px-3.5 pt-2.5">
           <DetailView detail={detail} />

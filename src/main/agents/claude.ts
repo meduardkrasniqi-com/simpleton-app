@@ -68,6 +68,15 @@ function questions(input: Json): Question[] {
     .filter((q) => q.question);
 }
 
+const free = new Set(["auto", "bypassPermissions"]);
+
+function prepare(pending: Pending, mode: string): Pending {
+  const entry = pending.entry;
+  if (!free.has(mode) || entry.kind !== "tool" || !entry.approval) return pending;
+  const suggestions = pending.suggestions.filter((s) => s.type !== "setMode");
+  return { ...pending, suggestions, entry: { ...entry, approval: { ...entry.approval, always: always(suggestions) } } };
+}
+
 function rules(suggestions: Json[]) {
   return suggestions
     .filter((s) => s.type === "addRules" && s.behavior === "allow")
@@ -169,6 +178,7 @@ export const claude: Driver = {
       { type: "user", message: { role: "user", content: message }, parent_tool_use_id: null, session_id: "" },
     ],
     answer,
+    prepare,
     setMode: (mode) => ({ type: "control_request", request_id: `mode-${Date.now()}`, request: { subtype: "set_permission_mode", mode } }),
   },
 
@@ -184,14 +194,15 @@ export const claude: Driver = {
       }
       const name = text(body.tool_name);
       const input = record(body.input);
-      const suggestions = list(body.permission_suggestions).map(record);
+      const suggestions = body.suppress_always_allow_rule === true ? [] : list(body.permission_suggestions).map(record);
+      const reason = text(body.decision_reason).trim() || undefined;
       const id = text(body.tool_use_id) || `${runId}:${seq++}`;
       let entry: Entry;
       if (name === "AskUserQuestion") entry = { id: `${id}:ask`, kind: "question", questions: questions(input), state: "pending" };
       else if (name === "ExitPlanMode") entry = { id: `${id}:plan`, kind: "plan", plan: text(input.plan).trim(), state: "pending" };
       else {
         const tool: Tool = tools.get(id) ?? { id, kind: "tool", ...describe(name, input, cwd), state: "running" };
-        entry = { ...tool, approval: { detail: detail(name, input), always: always(suggestions), state: "pending" } };
+        entry = { ...tool, approval: { detail: detail(name, input), reason, always: always(suggestions), state: "pending" } };
       }
       return [{ request: { requestId, tool: name, input, suggestions, entry } }];
     };
