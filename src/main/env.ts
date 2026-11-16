@@ -89,17 +89,35 @@ export async function which(name: string) {
   return null;
 }
 
-const resolved = new Map<Agent, string>();
+export type Binary = { path: string; version: string };
+
+const resolved = new Map<Agent, Promise<Binary | null>>();
+
+function version(file: string) {
+  return new Promise<string>((resolve) => {
+    execFile(file, ["--version"], { timeout: 8000, env: { ...process.env, TERM: "dumb" } }, (_error, stdout) => {
+      resolve(/(\d+\.\d+\.\d+)/.exec(stdout ?? "")?.[1] ?? "");
+    });
+  });
+}
+
+async function newest(agent: Agent): Promise<Binary | null> {
+  const candidates = [...new Set([...(await path()).split(delimiter).map((dir) => join(dir, names[agent])), ...(await bundled(agent))])];
+  const found: Binary[] = [];
+  for (const candidate of candidates) {
+    if (await executable(candidate)) found.push({ path: candidate, version: await version(candidate) });
+  }
+  return found.sort((a, b) => compareVersions(a.version, b.version))[0] ?? null;
+}
+
+export async function binaryInfo(agent: Agent) {
+  const cached = await resolved.get(agent);
+  if (cached && (await executable(cached.path))) return cached;
+  const next = newest(agent);
+  resolved.set(agent, next);
+  return next;
+}
 
 export async function binary(agent: Agent) {
-  const cached = resolved.get(agent);
-  if (cached && (await executable(cached))) return cached;
-  const candidates = [...(await path()).split(delimiter).map((dir) => join(dir, names[agent])), ...(await bundled(agent))];
-  for (const candidate of candidates) {
-    if (await executable(candidate)) {
-      resolved.set(agent, candidate);
-      return candidate;
-    }
-  }
-  return null;
+  return (await binaryInfo(agent))?.path ?? null;
 }

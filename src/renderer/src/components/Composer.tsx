@@ -4,6 +4,7 @@ import type { Agent, AgentSettings, Repo, Workspace } from "@shared/types";
 import { ModelPicker } from "@/components/ModelPicker";
 import { lastMode, ModePicker, rememberMode } from "@/components/ModePicker";
 import { Select } from "@/components/ui";
+import { useModels } from "@/lib/useModels";
 import { agents, cn } from "@/lib/utils";
 
 export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?: string; onCreated: (workspace: Workspace) => void }) {
@@ -23,6 +24,8 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
     setModeState(next);
     rememberMode(agent, next);
   };
+  const catalog = useModels();
+  const agentLabel = (a: Agent) => (catalog?.versions[a] ? `${agents[a]} ${catalog.versions[a]}` : agents[a]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -72,7 +75,7 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <Select value={repo} onChange={setRepo} options={repos.map((r) => ({ value: r.id, label: r.name }))} />
-          <Select value={agent} onChange={setAgent} options={(Object.keys(agents) as Agent[]).map((a) => ({ value: a, label: agents[a] }))} />
+          <Select value={agent} onChange={setAgent} options={(Object.keys(agents) as Agent[]).map((a) => ({ value: a, label: agentLabel(a) }))} />
           <ModePicker agent={agent} value={mode} onChange={setMode} />
           <ModelPicker agent={agent} value={settings} onChange={setSettings} />
           <button

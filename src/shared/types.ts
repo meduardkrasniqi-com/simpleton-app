@@ -38,6 +38,7 @@ export type ModelOption = {
 export type ModelCatalog = {
   models: Record<Agent, ModelOption[]>;
   defaults: Record<Agent, AgentSettings>;
+  versions: Partial<Record<Agent, string>>;
 };
 
 export type AgentSettings = {
