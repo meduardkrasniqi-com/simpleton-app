@@ -5,7 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { app } from "electron";
-import { defaultModes, modes, type Agent, type AgentSettings, type Entry, type EntryEvent, type Reply, type Workspace } from "@shared/types";
+import { defaultModes, type Agent, type AgentSettings, type Entry, type EntryEvent, type Reply, type Workspace } from "@shared/types";
 import * as models from "../models";
 import * as store from "../store";
 import { claude } from "./claude";
@@ -20,16 +20,12 @@ const missing: Record<Agent, string> = {
   codex: "Codex isn't installed. Install it with `npm install -g @openai/codex`, run `codex` once to sign in, then try again.",
 };
 
-type Run = { child: ChildProcess; stopped: boolean; driver: Driver; pending: Map<string, Pending>; want: string; write: (message: Json) => void };
+type Run = { child: ChildProcess; stopped: boolean; driver: Driver; pending: Map<string, Pending>; write: (message: Json) => void };
 
 const runs = new Map<string, Run>();
 const transcripts = new Map<string, Entry[]>();
 const saves = new Map<string, NodeJS.Timeout>();
 const listeners = new Set<(event: EntryEvent) => void>();
-const blocked = new Set<string>();
-
-const modeLabel = (agent: Agent, mode: string) => modes[agent].find((m) => m.id === mode)?.label ?? mode;
-
 const closed = (entry: Entry): Entry | null => {
   if (entry.kind === "tool" && entry.approval?.state === "pending") return { ...entry, approval: { ...entry.approval, state: "cancelled" } };
   if ((entry.kind === "question" || entry.kind === "plan") && entry.state === "pending") return { ...entry, state: "cancelled" };
@@ -130,17 +126,16 @@ export async function send(id: string, message: string) {
   const write = (message: Json) => {
     if (child.stdin?.writable) child.stdin.write(`${JSON.stringify(message)}\n`);
   };
-  const run: Run = { child, stopped: false, driver, pending: new Map(), want: requested, write };
+  const run: Run = { child, stopped: false, driver, pending: new Map(), write };
   runs.set(id, run);
 
-  const fallback = async (effective: string) => {
-    const asked = run.want;
-    if (effective === asked || !modes[workspace.agent].some((m) => m.id === effective)) return;
-    run.want = effective;
-    blocked.add(asked);
-    await patch(id, { mode: effective });
-    const tail = effective === "default" ? ", so each step waits for your approval here." : ".";
-    upsert(id, { id: randomUUID(), kind: "notice", text: `${modeLabel(workspace.agent, asked)} mode isn't available on this Claude Code account, usually because your organization turned it off. This task now runs in ${modeLabel(workspace.agent, effective)} mode${tail}` });
+  const drop = (key: string) => {
+    const pending = run.pending.get(key);
+    if (!pending) return;
+    run.pending.delete(key);
+    const ended = closed(transcripts.get(id)?.find((e) => e.id === key) ?? pending.entry);
+    if (ended) upsert(id, ended);
+    if (!run.pending.size) patch(id, { status: "working" });
   };
 
   let finished = false;
@@ -150,20 +145,14 @@ export async function send(id: string, message: string) {
   const apply = (update: Update) => {
     if ("model" in update) {
       if (!workspace.model) models.learn(workspace.agent, update.model);
-    } else if ("mode" in update) {
-      fallback(update.mode);
+    } else if ("settled" in update) {
+      [update.settled, `${update.settled}:ask`, `${update.settled}:plan`].forEach(drop);
     } else if ("request" in update) {
       run.pending.set(update.request.entry.id, update.request);
       upsert(id, update.request.entry);
       patch(id, { status: "input" });
     } else if ("cancel" in update) {
-      for (const [key, pending] of run.pending) {
-        if (pending.requestId !== update.cancel) continue;
-        run.pending.delete(key);
-        const ended = closed(transcripts.get(id)?.find((e) => e.id === key) ?? pending.entry);
-        if (ended) upsert(id, ended);
-      }
-      if (!run.pending.size) patch(id, { status: "working" });
+      [...run.pending].filter(([, pending]) => pending.requestId === update.cancel).forEach(([key]) => drop(key));
     } else if ("send" in update) {
       write(update.send);
     } else if ("session" in update) {
@@ -246,7 +235,6 @@ export async function configure(id: string, settings: AgentSettings) {
   await patch(id, { model: settings.model || undefined, effort: settings.effort || undefined, mode: settings.mode || undefined });
   const run = runs.get(id);
   if (run?.driver.streaming && settings.mode && settings.mode !== before?.mode) {
-    run.want = settings.mode;
     run.write(run.driver.streaming.setMode(settings.mode));
   }
 }
@@ -260,8 +248,7 @@ export async function respond(id: string, entryId: string, reply: Reply) {
   const said = reply.kind === "deny" ? reply.message?.trim() : "";
   if (said) upsert(id, { id: randomUUID(), kind: "user", text: said });
 
-  const choice = reply.kind === "plan" && blocked.has(reply.mode) ? { ...reply, mode: "acceptEdits" } : reply;
-  const result = run.driver.streaming.answer(pending, choice);
+  const result = run.driver.streaming.answer(pending, reply);
   run.write({ type: "control_response", response: { subtype: "success", request_id: pending.requestId, response: result.response } });
   upsert(id, result.entry);
 
@@ -269,7 +256,6 @@ export async function respond(id: string, entryId: string, reply: Reply) {
   const change: Partial<Workspace> = {};
   if (result.mode) {
     change.mode = result.mode;
-    run.want = result.mode;
   }
   if (result.rules?.length) change.allow = [...new Set([...(workspace?.allow ?? []), ...result.rules])];
   if (!run.pending.size) change.status = "working";

@@ -200,7 +200,7 @@ export const claude: Driver = {
       const updates: Update[] = [];
 
       if (event.type === "control_request") return request(event);
-      if (event.type === "control_cancel_request") return [{ cancel: text(event.request_id) }];
+      if (event.type === "control_cancel_request") return [{ cancel: text(event.request_id) || text(record(event.request).request_id) }];
 
       if (event.parent_tool_use_id) return updates;
 
@@ -208,8 +208,6 @@ export const claude: Driver = {
         updates.push({ session: text(event.session_id) });
         if (text(event.model)) updates.push({ model: text(event.model) });
       }
-
-      if (event.type === "system" && text(event.permissionMode)) updates.push({ mode: text(event.permissionMode) });
 
       if (event.type === "assistant") {
         for (const block of list(record(event.message).content).map(record)) {
@@ -226,6 +224,7 @@ export const claude: Driver = {
 
       if (event.type === "user") {
         for (const block of list(record(event.message).content).map(record)) {
+          if (block.type === "tool_result" && text(block.tool_use_id)) updates.push({ settled: text(block.tool_use_id) });
           const tool = block.type === "tool_result" ? tools.get(text(block.tool_use_id)) : undefined;
           if (!tool) continue;
           const done: Tool = { ...tool, state: block.is_error ? "failed" : "done" };

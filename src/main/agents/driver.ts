@@ -6,7 +6,7 @@ export type Pending = { requestId: string; tool: string; input: Json; suggestion
 
 export type Answer = { response: Json; entry: Entry; mode?: string; rules?: string[] };
 
-export type Update = { session: string } | { model: string } | { mode: string } | { entry: Entry } | { request: Pending } | { cancel: string } | { send: Json } | { error: string } | { done: true };
+export type Update = { session: string } | { model: string } | { entry: Entry } | { request: Pending } | { cancel: string } | { settled: string } | { send: Json } | { error: string } | { done: true };
 
 export type Launch = AgentSettings & { allow?: string[] };
 
