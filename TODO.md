@@ -36,7 +36,7 @@
 ## Build next
 
 - [x] Run Claude Code and Codex inside a workspace and stream their steps
-- [ ] Show agent questions with answer buttons
+- [x] Show agent questions with answer buttons
 - [ ] One-click PR with an agent-written description
 - [ ] Start a dev server per workspace and connect it to the relay
 - [x] Auto-update

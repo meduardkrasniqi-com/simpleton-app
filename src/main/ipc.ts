@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { channels, type AgentSettings, type NewWorkspace, type TermKind, type Theme } from "@shared/types";
+import { channels, type AgentSettings, type NewWorkspace, type Reply, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as auth from "./auth";
@@ -49,6 +49,7 @@ export function registerIpc() {
     agents.send(id, text).catch(() => undefined);
   });
   ipcMain.handle(channels.stop, (_event, id: string) => agents.stop(id));
+  ipcMain.handle(channels.respond, (_event, id: string, entryId: string, reply: Reply) => agents.respond(id, entryId, reply));
 
   ipcMain.handle(channels.openTerminal, (_event, id: string, kind: TermKind, cols: number, rows: number) => terminals.open(id, kind, cols, rows));
   ipcMain.on(channels.writeTerminal, (_event, id: string, kind: TermKind, data: string) => terminals.write(id, kind, data));

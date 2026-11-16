@@ -1,12 +1,23 @@
-import type { AgentSettings, Entry } from "@shared/types";
-
-export type Update = { session: string } | { model: string } | { entry: Entry } | { error: string } | { done: true };
+import type { AgentSettings, Entry, Reply } from "@shared/types";
 
 export type Json = Record<string, unknown>;
 
+export type Pending = { requestId: string; tool: string; input: Json; suggestions: Json[]; entry: Entry };
+
+export type Answer = { response: Json; entry: Entry; mode?: string; rules?: string[] };
+
+export type Update = { session: string } | { model: string } | { mode: string } | { entry: Entry } | { request: Pending } | { cancel: string } | { send: Json } | { error: string } | { done: true };
+
+export type Launch = AgentSettings & { allow?: string[] };
+
 export type Driver = {
-  args: (cwd: string, sessionId: string | undefined, settings: AgentSettings) => string[];
+  args: (cwd: string, sessionId: string | undefined, settings: Launch) => string[];
   parser: (cwd: string, runId: string) => (event: Json) => Update[];
+  streaming?: {
+    open: (text: string) => Json[];
+    answer: (pending: Pending, reply: Reply) => Answer;
+    setMode: (mode: string) => Json;
+  };
 };
 
 export const text = (value: unknown) => (typeof value === "string" ? value : "");

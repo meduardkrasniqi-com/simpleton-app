@@ -2,6 +2,8 @@ import { isAbsolute, relative } from "node:path";
 import type { Entry, ToolState } from "@shared/types";
 import { command, list, record, shorten, text, type Driver, type Json, type Update } from "./driver";
 
+const sandboxes = new Set(["read-only", "workspace-write", "danger-full-access"]);
+
 function unwrap(raw: string) {
   const match = /^\S*(?:sh|zsh|bash)\s+-l?c\s+(["'])([\s\S]*)\1$/.exec(raw.trim());
   if (!match) return raw;
@@ -43,13 +45,12 @@ function entry(item: Json, id: string, cwd: string): Entry | null {
 }
 
 export const codex: Driver = {
-  args: (cwd, sessionId, { model, effort }) => [
+  args: (cwd, sessionId, { model, effort, mode }) => [
     "exec",
     "--json",
     "--sandbox",
-    "workspace-write",
-    "-c",
-    "sandbox_workspace_write.network_access=true",
+    sandboxes.has(mode ?? "") ? mode! : "workspace-write",
+    ...(mode === "read-only" || mode === "danger-full-access" ? [] : ["-c", "sandbox_workspace_write.network_access=true"]),
     ...(model ? ["--model", model] : []),
     ...(effort ? ["-c", `model_reasoning_effort="${effort}"`] : []),
     "--cd",

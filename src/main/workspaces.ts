@@ -72,7 +72,7 @@ export async function createWorkspace(input: NewWorkspace) {
   await mkdir(join(worktreesDir(), repo.name), { recursive: true });
   await git.addWorktree(repo.path, path, branch, base);
   await copyEnvFiles(repo.path, path);
-  const workspace: Workspace = { id, repoId: repo.id, task: input.task.trim(), agent: input.agent, branch, base, path, status: "working", createdAt: Date.now(), model: input.model || undefined, effort: input.effort || undefined };
+  const workspace: Workspace = { id, repoId: repo.id, task: input.task.trim(), agent: input.agent, branch, base, path, status: "working", createdAt: Date.now(), model: input.model || undefined, effort: input.effort || undefined, mode: input.mode || undefined };
   await store.update((s) => ({ ...s, workspaces: [...s.workspaces, workspace] }));
   agents.send(id, workspace.task).catch(() => undefined);
   return workspace;

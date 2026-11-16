@@ -27,6 +27,7 @@ const api: Api = {
   },
   send: (id, text) => ipcRenderer.invoke(channels.send, id, text),
   stop: (id) => ipcRenderer.invoke(channels.stop, id),
+  respond: (id, entryId, reply) => ipcRenderer.invoke(channels.respond, id, entryId, reply),
   openTerminal: (id, kind, cols, rows) => ipcRenderer.invoke(channels.openTerminal, id, kind, cols, rows),
   writeTerminal: (id, kind, data) => ipcRenderer.send(channels.writeTerminal, id, kind, data),
   resizeTerminal: (id, kind, cols, rows) => ipcRenderer.send(channels.resizeTerminal, id, kind, cols, rows),

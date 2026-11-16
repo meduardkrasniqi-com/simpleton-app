@@ -2,6 +2,7 @@ import { ArrowUp } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Agent, AgentSettings, Repo, Workspace } from "@shared/types";
 import { ModelPicker } from "@/components/ModelPicker";
+import { lastMode, ModePicker, rememberMode } from "@/components/ModePicker";
 import { Select } from "@/components/ui";
 import { agents, cn } from "@/lib/utils";
 
@@ -10,10 +11,17 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
   const [repo, setRepo] = useState(repoId ?? repos[0]?.id ?? "");
   const [agent, setAgentState] = useState<Agent>("claude-code");
   const [settings, setSettings] = useState<AgentSettings>({});
+  const [mode, setModeState] = useState(() => lastMode("claude-code"));
 
   const setAgent = (next: Agent) => {
     setAgentState(next);
     setSettings({});
+    setModeState(lastMode(next));
+  };
+
+  const setMode = (next: string) => {
+    setModeState(next);
+    rememberMode(agent, next);
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +41,7 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
     setBusy(true);
     setError(null);
     try {
-      const workspace = await window.simpleton.createWorkspace({ repoId: repo, task, agent, ...settings });
+      const workspace = await window.simpleton.createWorkspace({ repoId: repo, task, agent, ...settings, mode });
       setTask("");
       onCreated(workspace);
     } catch (e) {
@@ -65,6 +73,7 @@ export function Composer({ repos, repoId, onCreated }: { repos: Repo[]; repoId?:
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <Select value={repo} onChange={setRepo} options={repos.map((r) => ({ value: r.id, label: r.name }))} />
           <Select value={agent} onChange={setAgent} options={(Object.keys(agents) as Agent[]).map((a) => ({ value: a, label: agents[a] }))} />
+          <ModePicker agent={agent} value={mode} onChange={setMode} />
           <ModelPicker agent={agent} value={settings} onChange={setSettings} />
           <button
             type="button"

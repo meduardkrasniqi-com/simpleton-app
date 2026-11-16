@@ -5,12 +5,12 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { app } from "electron";
-import type { Agent, AgentSettings, Entry, EntryEvent, Workspace } from "@shared/types";
+import { defaultModes, modes, type Agent, type AgentSettings, type Entry, type EntryEvent, type Reply, type Workspace } from "@shared/types";
 import * as models from "../models";
 import * as store from "../store";
 import { claude } from "./claude";
 import { codex } from "./codex";
-import type { Driver, Json, Update } from "./driver";
+import type { Driver, Json, Pending, Update } from "./driver";
 import { binary, env } from "../env";
 
 const drivers: Record<Agent, Driver> = { "claude-code": claude, codex };
@@ -20,12 +20,21 @@ const missing: Record<Agent, string> = {
   codex: "Codex isn't installed. Install it with `npm install -g @openai/codex`, run `codex` once to sign in, then try again.",
 };
 
-type Run = { child: ChildProcess; stopped: boolean };
+type Run = { child: ChildProcess; stopped: boolean; driver: Driver; pending: Map<string, Pending>; want: string; write: (message: Json) => void };
 
 const runs = new Map<string, Run>();
 const transcripts = new Map<string, Entry[]>();
 const saves = new Map<string, NodeJS.Timeout>();
 const listeners = new Set<(event: EntryEvent) => void>();
+const blocked = new Set<string>();
+
+const modeLabel = (agent: Agent, mode: string) => modes[agent].find((m) => m.id === mode)?.label ?? mode;
+
+const closed = (entry: Entry): Entry | null => {
+  if (entry.kind === "tool" && entry.approval?.state === "pending") return { ...entry, approval: { ...entry.approval, state: "cancelled" } };
+  if ((entry.kind === "question" || entry.kind === "plan") && entry.state === "pending") return { ...entry, state: "cancelled" };
+  return null;
+};
 
 const dir = () => join(app.getPath("userData"), "transcripts");
 const file = (id: string) => join(dir(), `${id}.json`);
@@ -44,6 +53,7 @@ export async function transcript(id: string) {
   } catch {
     entries = [];
   }
+  if (!runs.has(id)) entries = entries.map((entry) => closed(entry) ?? entry);
   transcripts.set(id, transcripts.get(id) ?? entries);
   return transcripts.get(id)!;
 }
@@ -65,10 +75,11 @@ function save(id: string) {
 function upsert(id: string, entry: Entry) {
   const entries = transcripts.get(id) ?? [];
   const index = entries.findIndex((e) => e.id === entry.id);
-  if (index === -1) entries.push(entry);
-  else entries[index] = entry;
+  const next = index === -1 ? entry : ({ ...entries[index], ...entry } as Entry);
+  if (index === -1) entries.push(next);
+  else entries[index] = next;
   transcripts.set(id, entries);
-  listeners.forEach((listener) => listener({ workspaceId: id, entry }));
+  listeners.forEach((listener) => listener({ workspaceId: id, entry: next }));
   save(id);
 }
 
@@ -78,7 +89,9 @@ function patch(id: string, change: Partial<Workspace>) {
 
 function settleTools(id: string) {
   for (const entry of transcripts.get(id) ?? []) {
-    if (entry.kind === "tool" && entry.state === "running") upsert(id, { ...entry, state: "failed" });
+    const ended = closed(entry);
+    if (ended) upsert(id, ended);
+    if (entry.kind === "tool" && entry.state === "running") upsert(id, { ...(ended ?? entry), state: "failed" } as Entry);
   }
 }
 
@@ -105,15 +118,30 @@ export async function send(id: string, message: string) {
   const runId = randomUUID().slice(0, 8);
   const parse = driver.parser(workspace.path, runId);
 
+  const requested = workspace.mode || defaultModes[workspace.agent];
+
   let child: ChildProcess;
   try {
-    child = spawn(bin, driver.args(workspace.path, workspace.sessionId, { model: workspace.model, effort: workspace.effort }), { cwd: workspace.path, env: await env(), stdio: ["pipe", "pipe", "pipe"], detached: true });
+    child = spawn(bin, driver.args(workspace.path, workspace.sessionId, { model: workspace.model, effort: workspace.effort, mode: requested, allow: workspace.allow }), { cwd: workspace.path, env: await env(), stdio: ["pipe", "pipe", "pipe"], detached: true });
   } catch (error) {
     return fail(error instanceof Error ? error.message : String(error));
   }
 
-  const run: Run = { child, stopped: false };
+  const write = (message: Json) => {
+    if (child.stdin?.writable) child.stdin.write(`${JSON.stringify(message)}\n`);
+  };
+  const run: Run = { child, stopped: false, driver, pending: new Map(), want: requested, write };
   runs.set(id, run);
+
+  const fallback = async (effective: string) => {
+    const asked = run.want;
+    if (effective === asked || !modes[workspace.agent].some((m) => m.id === effective)) return;
+    run.want = effective;
+    blocked.add(asked);
+    await patch(id, { mode: effective });
+    const tail = effective === "default" ? ", so each step waits for your approval here." : ".";
+    upsert(id, { id: randomUUID(), kind: "notice", text: `${modeLabel(workspace.agent, asked)} mode isn't available on this Claude Code account, usually because your organization turned it off. This task now runs in ${modeLabel(workspace.agent, effective)} mode${tail}` });
+  };
 
   let finished = false;
   let failed = false;
@@ -122,6 +150,22 @@ export async function send(id: string, message: string) {
   const apply = (update: Update) => {
     if ("model" in update) {
       if (!workspace.model) models.learn(workspace.agent, update.model);
+    } else if ("mode" in update) {
+      fallback(update.mode);
+    } else if ("request" in update) {
+      run.pending.set(update.request.entry.id, update.request);
+      upsert(id, update.request.entry);
+      patch(id, { status: "input" });
+    } else if ("cancel" in update) {
+      for (const [key, pending] of run.pending) {
+        if (pending.requestId !== update.cancel) continue;
+        run.pending.delete(key);
+        const ended = closed(transcripts.get(id)?.find((e) => e.id === key) ?? pending.entry);
+        if (ended) upsert(id, ended);
+      }
+      if (!run.pending.size) patch(id, { status: "working" });
+    } else if ("send" in update) {
+      write(update.send);
     } else if ("session" in update) {
       if (update.session !== store.get().workspaces.find((w) => w.id === id)?.sessionId) patch(id, { sessionId: update.session });
     } else if ("entry" in update) {
@@ -131,6 +175,7 @@ export async function send(id: string, message: string) {
       upsert(id, { id: randomUUID(), kind: "error", text: update.error });
     } else {
       finished = true;
+      if (driver.streaming) child.stdin?.end();
     }
   };
 
@@ -148,7 +193,8 @@ export async function send(id: string, message: string) {
   });
 
   child.stdin!.on("error", () => undefined);
-  child.stdin!.end(text);
+  if (driver.streaming) driver.streaming.open(text).forEach(write);
+  else child.stdin!.end(text);
 
   await new Promise<void>((resolve) => {
     let settled = false;
@@ -156,6 +202,7 @@ export async function send(id: string, message: string) {
       if (settled) return;
       settled = true;
       runs.delete(id);
+      run.pending.clear();
       settleTools(id);
       if (!run.stopped && !finished && !failed) {
         const detail = error?.message || stderr.trim().split("\n").slice(-6).join("\n") || `Exited with code ${code}`;
@@ -195,7 +242,38 @@ export async function forget(id: string) {
 }
 
 export async function configure(id: string, settings: AgentSettings) {
-  await patch(id, { model: settings.model || undefined, effort: settings.effort || undefined });
+  const before = store.get().workspaces.find((w) => w.id === id);
+  await patch(id, { model: settings.model || undefined, effort: settings.effort || undefined, mode: settings.mode || undefined });
+  const run = runs.get(id);
+  if (run?.driver.streaming && settings.mode && settings.mode !== before?.mode) {
+    run.want = settings.mode;
+    run.write(run.driver.streaming.setMode(settings.mode));
+  }
+}
+
+export async function respond(id: string, entryId: string, reply: Reply) {
+  const run = runs.get(id);
+  const pending = run?.pending.get(entryId);
+  if (!run?.driver.streaming || !pending) return;
+  run.pending.delete(entryId);
+
+  const said = reply.kind === "deny" ? reply.message?.trim() : "";
+  if (said) upsert(id, { id: randomUUID(), kind: "user", text: said });
+
+  const choice = reply.kind === "plan" && blocked.has(reply.mode) ? { ...reply, mode: "acceptEdits" } : reply;
+  const result = run.driver.streaming.answer(pending, choice);
+  run.write({ type: "control_response", response: { subtype: "success", request_id: pending.requestId, response: result.response } });
+  upsert(id, result.entry);
+
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  const change: Partial<Workspace> = {};
+  if (result.mode) {
+    change.mode = result.mode;
+    run.want = result.mode;
+  }
+  if (result.rules?.length) change.allow = [...new Set([...(workspace?.allow ?? []), ...result.rules])];
+  if (!run.pending.size) change.status = "working";
+  if (Object.keys(change).length) await patch(id, change);
 }
 
 export async function recover() {

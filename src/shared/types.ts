@@ -21,6 +21,8 @@ export type Workspace = {
   sessionId?: string;
   model?: string;
   effort?: string;
+  mode?: string;
+  allow?: string[];
   prUrl?: string;
 };
 
@@ -41,7 +43,30 @@ export type ModelCatalog = {
 export type AgentSettings = {
   model?: string;
   effort?: string;
+  mode?: string;
 };
+
+export type ModeOption = {
+  id: string;
+  label: string;
+};
+
+export const modes: Record<Agent, ModeOption[]> = {
+  "claude-code": [
+    { id: "default", label: "Ask first" },
+    { id: "acceptEdits", label: "Accept edits" },
+    { id: "plan", label: "Plan" },
+    { id: "auto", label: "Auto" },
+    { id: "bypassPermissions", label: "Bypass" },
+  ],
+  codex: [
+    { id: "read-only", label: "Read only" },
+    { id: "workspace-write", label: "Auto" },
+    { id: "danger-full-access", label: "Full access" },
+  ],
+};
+
+export const defaultModes: Record<Agent, string> = { "claude-code": "auto", codex: "workspace-write" };
 
 export type DiffLine = {
   kind: "add" | "del" | "ctx" | "gap";
@@ -57,10 +82,34 @@ export type FileView = {
 
 export type ToolState = "running" | "done" | "failed";
 
+export type Detail = { kind: "command"; text: string } | { kind: "diff"; lines: DiffLine[] } | { kind: "text"; text: string };
+
+export type Approval = {
+  detail?: Detail;
+  always?: string;
+  state: "pending" | "allowed" | "always" | "denied" | "cancelled";
+};
+
+export type Choice = {
+  label: string;
+  description?: string;
+};
+
+export type Question = {
+  question: string;
+  header?: string;
+  options: Choice[];
+  multiSelect: boolean;
+};
+
+export type Reply = { kind: "allow"; always?: boolean } | { kind: "deny"; message?: string } | { kind: "answer"; answers: Record<string, string> } | { kind: "plan"; mode: string };
+
 export type Entry =
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "assistant"; text: string }
-  | { id: string; kind: "tool"; verb: string; target: string; state: ToolState }
+  | { id: string; kind: "tool"; verb: string; target: string; state: ToolState; approval?: Approval }
+  | { id: string; kind: "question"; questions: Question[]; answers?: Record<string, string>; state: "pending" | "answered" | "declined" | "cancelled" }
+  | { id: string; kind: "plan"; plan: string; mode?: string; state: "pending" | "approved" | "rejected" | "cancelled" }
   | { id: string; kind: "error"; text: string }
   | { id: string; kind: "notice"; text: string };
 
@@ -135,6 +184,7 @@ export type NewWorkspace = {
   agent: Agent;
   model?: string;
   effort?: string;
+  mode?: string;
 };
 
 export type Api = {
@@ -155,6 +205,7 @@ export type Api = {
   onEntry: (listener: (event: EntryEvent) => void) => () => void;
   send: (id: string, text: string) => Promise<void>;
   stop: (id: string) => Promise<void>;
+  respond: (id: string, entryId: string, reply: Reply) => Promise<void>;
   openTerminal: (id: string, kind: TermKind, cols: number, rows: number) => Promise<TermSnapshot>;
   writeTerminal: (id: string, kind: TermKind, data: string) => void;
   resizeTerminal: (id: string, kind: TermKind, cols: number, rows: number) => void;
@@ -189,6 +240,7 @@ export const channels = {
   entry: "agent:entry",
   send: "agent:send",
   stop: "agent:stop",
+  respond: "agent:respond",
   openTerminal: "terminal:open",
   writeTerminal: "terminal:write",
   resizeTerminal: "terminal:resize",

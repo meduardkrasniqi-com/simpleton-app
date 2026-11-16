@@ -1,10 +1,12 @@
 import { ArrowUp, Bot, CircleAlert, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import type { Entry, FileChange, Preview, Share, TermKind, Workspace } from "@shared/types";
+import { modes, type Entry, type FileChange, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
 import { Markdown } from "@/components/Markdown";
 import { ModelPicker } from "@/components/ModelPicker";
+import { ModePicker } from "@/components/ModePicker";
+import { AnsweredQuestion, ApprovalCard, PlanCard, QuestionCard } from "@/components/Prompts";
 import { WorkspaceSide } from "@/components/WorkspaceSide";
 import { Terminal as TerminalView } from "@/components/Terminal";
 import { Dot, ghost } from "@/components/ui";
@@ -29,7 +31,10 @@ const fileVerbs = new Set(["Read", "Edit", "Write"]);
 
 const openable = (entry: Extract<Entry, { kind: "tool" }>) => fileVerbs.has(entry.verb) && !!entry.target && !entry.target.startsWith("/") && !entry.target.includes(", ") && !entry.target.endsWith("…");
 
-function Tool({ entry, onOpen }: { entry: Extract<Entry, { kind: "tool" }>; onOpen: (path: string) => void }) {
+const isPending = (entry: Entry) => (entry.kind === "tool" ? entry.approval?.state === "pending" : (entry.kind === "question" || entry.kind === "plan") && entry.state === "pending");
+
+function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool" }>; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
+  if (entry.approval?.state === "pending") return <ApprovalCard entry={entry} icon={icons[entry.verb] ?? Wrench} onReply={onReply} />;
   const running = entry.state === "running";
   const Icon = running ? LoaderCircle : (icons[entry.verb] ?? Wrench);
   return (
@@ -46,18 +51,23 @@ function Tool({ entry, onOpen }: { entry: Extract<Entry, { kind: "tool" }>; onOp
             {entry.target}
           </span>
         ))}
+      {entry.approval?.state === "denied" && <span className="shrink-0 text-[12px] text-minus">Denied</span>}
     </div>
   );
 }
 
-function Row({ entry, onOpen }: { entry: Entry; onOpen: (path: string) => void }) {
+function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace["agent"]; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
   switch (entry.kind) {
     case "user":
       return <p className="selectable ml-auto w-fit max-w-[85%] whitespace-pre-wrap rounded-2xl bg-stage px-4 py-2.5 text-[14px] leading-[1.5]">{entry.text}</p>;
     case "assistant":
       return <Markdown text={entry.text} />;
     case "tool":
-      return <Tool entry={entry} onOpen={onOpen} />;
+      return <Tool entry={entry} onOpen={onOpen} onReply={onReply} />;
+    case "question":
+      return entry.state === "pending" ? <QuestionCard entry={entry} onReply={onReply} /> : <AnsweredQuestion entry={entry} />;
+    case "plan":
+      return <PlanCard entry={entry} modeLabel={modes[agent].find((m) => m.id === entry.mode)?.label} onReply={onReply} />;
     case "notice":
       return (
         <div className="flex gap-2 text-[12.5px] leading-[1.5] text-mute">
@@ -77,23 +87,31 @@ function Row({ entry, onOpen }: { entry: Entry; onOpen: (path: string) => void }
 
 function gap(previous: Entry | undefined, entry: Entry) {
   if (!previous) return "";
-  if (previous.kind === "tool" && entry.kind === "tool") return "mt-0.5";
+  if (previous.kind === "tool" && entry.kind === "tool" && !isPending(previous) && !isPending(entry)) return "mt-0.5";
   if (entry.kind === "user") return "mt-8";
   return "mt-4";
 }
 
-function FollowUp({ workspace, initial }: { workspace: Workspace; initial: string }) {
+const placeholders: Record<string, string> = {
+  tool: "Tell the agent what to do instead",
+  question: "Answer in your own words",
+  plan: "Describe what to change",
+};
+
+function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initial: string; pending?: Entry }) {
   const [text, setText] = useState(initial);
   const input = useRef<HTMLTextAreaElement>(null);
-  const working = workspace.status === "working";
+  const working = workspace.status === "working" || (workspace.status === "input" && !!pending);
+  const canSend = !!text.trim() && (!working || !!pending);
 
   useEffect(() => {
     input.current?.focus();
   }, []);
 
   const submit = () => {
-    if (!text.trim() || working) return;
-    window.simpleton.send(workspace.id, text);
+    if (!canSend) return;
+    if (pending) window.simpleton.respond(workspace.id, pending.id, { kind: "deny", message: text });
+    else window.simpleton.send(workspace.id, text);
     setText("");
   };
 
@@ -111,19 +129,20 @@ function FollowUp({ workspace, initial }: { workspace: Workspace; initial: strin
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder={`Message ${agents[workspace.agent]}`}
+        placeholder={pending ? placeholders[pending.kind] : `Message ${agents[workspace.agent]}`}
         rows={1}
         className="block max-h-40 min-h-6 w-full resize-none bg-transparent px-1 text-[14px] leading-[1.5] outline-none [field-sizing:content] placeholder:text-mute"
       />
       <div className="mt-2 flex items-center gap-2">
-        <ModelPicker agent={workspace.agent} value={{ model: workspace.model, effort: workspace.effort }} onChange={(settings) => window.simpleton.configure(workspace.id, settings)} />
+        <ModePicker agent={workspace.agent} value={workspace.mode} onChange={(mode) => window.simpleton.configure(workspace.id, { model: workspace.model, effort: workspace.effort, mode })} />
+        <ModelPicker agent={workspace.agent} value={{ model: workspace.model, effort: workspace.effort }} onChange={(settings) => window.simpleton.configure(workspace.id, { ...settings, mode: workspace.mode })} />
         <span className="ml-auto" />
-        {working ? (
+        {working && !canSend ? (
           <button type="button" onClick={() => window.simpleton.stop(workspace.id)} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface">
             <Square className="size-3 fill-current" />
           </button>
         ) : (
-          <button type="button" onClick={submit} disabled={!text.trim()} aria-label="Send" className={cn("grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface transition-opacity", !text.trim() && "opacity-30")}>
+          <button type="button" onClick={submit} disabled={!canSend} aria-label="Send" className={cn("grid size-7 shrink-0 place-items-center rounded-md bg-ink text-surface transition-opacity", !canSend && "opacity-30")}>
             <ArrowUp className="size-4" />
           </button>
         )}
@@ -328,7 +347,9 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
   const links = useMemo(() => ({ resolve: resolver(workspace.path, tree), open: (path: string) => openRef.current(path) }), [workspace.path, tree]);
 
   const last = entries?.[entries.length - 1];
-  const thinking = workspace.status === "working" && !(last?.kind === "tool" && last.state === "running");
+  const pending = entries?.find(isPending);
+  const thinking = workspace.status === "working" && !pending && !(last?.kind === "tool" && last.state === "running");
+  const reply = (entryId: string) => (value: Reply) => window.simpleton.respond(workspace.id, entryId, value);
 
   return (
     <div className="flex h-full">
@@ -368,14 +389,14 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                 <div className="mx-auto max-w-[720px]">
                   {entries?.map((entry, i) => (
                     <div key={entry.id} className={gap(entries[i - 1], entry)}>
-                      <Row entry={entry} onOpen={openFile} />
+                      <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />
                     </div>
                   ))}
                   {thinking && <LoaderCircle className={cn("size-3.5 animate-spin text-mute", entries?.length ? "mt-4" : "")} />}
                 </div>
               </div>
               <div className="shrink-0 px-8 pb-5">
-                <div className="mx-auto max-w-[720px]">{entries && <FollowUp workspace={workspace} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
+                <div className="mx-auto max-w-[720px]">{entries && <FollowUp workspace={workspace} pending={pending} initial={entries.length === 0 && workspace.status === "idle" ? workspace.task : ""} />}</div>
               </div>
             </div>
           </FileLinksContext.Provider>
