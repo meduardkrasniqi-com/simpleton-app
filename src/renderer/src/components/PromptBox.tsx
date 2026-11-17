@@ -1,6 +1,7 @@
 import { ChevronRight, FileText, Folder } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import type { Command } from "@shared/types";
+import { AttachmentList, type AttachmentState } from "@/components/Attachments";
 import { Highlight, match } from "@/components/Fuzzy";
 import { Loader } from "@/components/Loader";
 import { cn } from "@/lib/utils";
@@ -167,6 +168,7 @@ export function PromptBox({
   source,
   files,
   commands,
+  attachments,
   children,
 }: {
   value: string;
@@ -179,6 +181,7 @@ export function PromptBox({
   source: string;
   files: () => Promise<string[]>;
   commands?: () => Promise<Command[]>;
+  attachments?: AttachmentState;
   children: ReactNode;
 }) {
   const textarea = useRef<HTMLTextAreaElement | null>(null);
@@ -189,6 +192,44 @@ export function PromptBox({
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const nextCaret = useRef<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+
+  const hasFiles = (e: DragEvent) => !!attachments && e.dataTransfer.types.includes("Files");
+
+  const drop = {
+    onDragEnter: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth.current += 1;
+      setDragging(true);
+    },
+    onDragOver: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      dragDepth.current = Math.max(0, dragDepth.current - 1);
+      if (!dragDepth.current) setDragging(false);
+    },
+    onDrop: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth.current = 0;
+      setDragging(false);
+      attachments?.addFiles([...e.dataTransfer.files]);
+      textarea.current?.focus();
+    },
+  };
+
+  const paste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = [...e.clipboardData.files];
+    if (!attachments || !files.length) return;
+    e.preventDefault();
+    attachments.addFiles(files);
+  };
 
   const fileList = useLoaded(source, files);
   const commandList = useLoaded(source, commands);
@@ -283,7 +324,8 @@ export function PromptBox({
   const hint = ghost ? names.get(ghost[1])?.hint : undefined;
 
   return (
-    <div className="relative rounded-xl border border-ink/[0.1] bg-raised p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:border-ink/[0.2]">
+    <div {...drop} className={cn("relative rounded-xl border border-ink/[0.1] bg-raised p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow] focus-within:border-ink/[0.2]", dragging && "border-ask/60 shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-ask)_14%,transparent)] focus-within:border-ask/60")}>
+      {attachments && <AttachmentList paths={attachments.paths} onRemove={attachments.remove} className="mb-3" />}
       <div className="relative">
         <div ref={backdrop} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-1 text-[14px] leading-[1.5] text-ink">
           <Tokens text={value} valid={valid} />
@@ -306,6 +348,7 @@ export function PromptBox({
           }}
           onBlur={() => setFocused(false)}
           onKeyDown={keyDown}
+          onPaste={paste}
           placeholder={placeholder}
           spellCheck={false}
           rows={1}

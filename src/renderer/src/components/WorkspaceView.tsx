@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, Bot, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
+import { AttachButton, AttachmentList, splitAttachments, useAttachments, withAttachments } from "@/components/Attachments";
 import { FileIcon } from "@/components/FileIcon";
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
@@ -125,12 +126,19 @@ function Turn({ entry, onOpen }: { entry: Extract<Entry, { kind: "turn" }>; onOp
 
 function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace["agent"]; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
   switch (entry.kind) {
-    case "user":
+    case "user": {
+      const message = splitAttachments(entry.text);
       return (
-        <p className="selectable ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-stage px-4 py-2.5 text-[14px] leading-[1.5]">
-          <Tokens text={entry.text} />
-        </p>
+        <div className="ml-auto flex w-fit max-w-[85%] flex-col items-end gap-2">
+          {message.text && (
+            <p className="selectable w-fit whitespace-pre-wrap break-words rounded-2xl bg-stage px-4 py-2.5 text-[14px] leading-[1.5]">
+              <Tokens text={message.text} />
+            </p>
+          )}
+          <AttachmentList paths={message.paths} className="justify-end" />
+        </div>
       );
+    }
     case "assistant":
       return <Markdown text={entry.text} />;
     case "tool":
@@ -208,8 +216,9 @@ function Queue({ workspace, onEdit }: { workspace: Workspace; onEdit: (text: str
 function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initial: string; pending?: Entry }) {
   const [text, setText] = useState(initial);
   const input = useRef<HTMLTextAreaElement>(null);
+  const attachments = useAttachments();
   const working = workspace.status === "working" || (workspace.status === "input" && !!pending);
-  const canSend = !!text.trim();
+  const canSend = !!text.trim() || attachments.paths.length > 0;
   const choices = useAgentChoices(workspace.agent, { model: workspace.model, effort: workspace.effort, mode: workspace.mode }, (settings) => window.simpleton.configure(workspace.id, settings));
 
   useEffect(() => {
@@ -218,9 +227,11 @@ function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initi
 
   const submit = () => {
     if (!canSend) return;
-    if (pending) window.simpleton.respond(workspace.id, pending.id, { kind: "deny", message: text });
-    else window.simpleton.send(workspace.id, text);
+    const message = withAttachments(text, attachments.paths);
+    if (pending) window.simpleton.respond(workspace.id, pending.id, { kind: "deny", message });
+    else window.simpleton.send(workspace.id, message);
     setText("");
+    attachments.clear();
   };
 
   const edit = (queued: string) => {
@@ -249,8 +260,10 @@ function FollowUp({ workspace, initial, pending }: { workspace: Workspace; initi
         files={() => window.simpleton.files(workspace.id)}
         commands={workspace.agent === "claude-code" && !pending ? () => window.simpleton.commands(workspace.agent, workspace.repoId) : undefined}
         className="max-h-40 min-h-6"
+        attachments={attachments}
       >
         <div className="-ml-1 mt-2 flex items-center gap-2">
+          <AttachButton attachments={attachments} />
           <RunSettings choices={choices} side="top" />
           <span className="ml-auto" />
           {working && (

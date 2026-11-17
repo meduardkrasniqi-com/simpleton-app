@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 import { channels, type Api, type AppState, type Auth, type EntryEvent, type TermData } from "@shared/types";
 
 const api: Api = {
@@ -24,6 +24,9 @@ const api: Api = {
   readImage: (path) => ipcRenderer.invoke(channels.readImage, path),
   copyImage: (bytes) => ipcRenderer.invoke(channels.copyImage, bytes),
   saveImage: (suggested, bytes) => ipcRenderer.invoke(channels.saveImage, suggested, bytes),
+  saveAttachment: (name, bytes) => ipcRenderer.invoke(channels.saveAttachment, name, bytes),
+  pickAttachments: () => ipcRenderer.invoke(channels.pickAttachments),
+  pathForFile: (file) => webUtils.getPathForFile(file),
   commands: (agent, repoId) => ipcRenderer.invoke(channels.commands, agent, repoId),
   setTheme: (theme) => ipcRenderer.invoke(channels.setTheme, theme),
   models: () => ipcRenderer.invoke(channels.models),

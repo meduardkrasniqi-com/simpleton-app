@@ -232,6 +232,9 @@ export type Api = {
   readImage: (path: string) => Promise<Uint8Array>;
   copyImage: (bytes: Uint8Array) => Promise<void>;
   saveImage: (suggested: string, bytes: Uint8Array) => Promise<string | null>;
+  saveAttachment: (name: string, bytes: Uint8Array) => Promise<string>;
+  pickAttachments: () => Promise<string[]>;
+  pathForFile: (file: File) => string;
   commands: (agent: Agent, repoId: string) => Promise<Command[]>;
   setTheme: (theme: Theme) => Promise<void>;
   models: () => Promise<ModelCatalog>;
@@ -278,6 +281,8 @@ export const channels = {
   readImage: "image:read",
   copyImage: "image:copy",
   saveImage: "image:save",
+  saveAttachment: "attachment:save",
+  pickAttachments: "attachment:pick",
   commands: "agent:commands",
   setTheme: "app:theme",
   models: "agent:models",

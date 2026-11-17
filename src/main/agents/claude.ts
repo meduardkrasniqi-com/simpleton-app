@@ -1,4 +1,5 @@
 import { isAbsolute, relative } from "node:path";
+import * as attachments from "../attachments";
 import type { DiffLine, Detail, Entry, Question, Reply } from "@shared/types";
 import { command, instructions, list, output, record, shorten, text, type Answer, type Driver, type Json, type Pending, type Update } from "./driver";
 
@@ -168,6 +169,8 @@ export const claude: Driver = {
     mode || "auto",
     "--append-system-prompt",
     instructions,
+    "--add-dir",
+    attachments.dir(),
     ...(allow?.length ? ["--settings", JSON.stringify({ permissions: { allow } })] : []),
     ...(model ? ["--model", model] : []),
     ...(effort ? ["--effort", effort] : []),

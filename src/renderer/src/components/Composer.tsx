@@ -1,6 +1,7 @@
 import { ArrowUp, Bot, FolderGit2 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Agent, AgentSettings, Repo, Workspace } from "@shared/types";
+import { AttachButton, useAttachments, withAttachments } from "@/components/Attachments";
 import { PromptBox } from "@/components/PromptBox";
 import { lastMode, rememberMode, RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { useModels } from "@/lib/useModels";
@@ -32,6 +33,7 @@ export function Composer({ repos, repoId, tall, onCreated }: { repos: Repo[]; re
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const attachments = useAttachments();
 
   useEffect(() => {
     if (repoId) setRepo(repoId);
@@ -47,8 +49,9 @@ export function Composer({ repos, repoId, tall, onCreated }: { repos: Repo[]; re
     setBusy(true);
     setError(null);
     try {
-      const workspace = await window.simpleton.createWorkspace({ repoId: repo, task, agent, ...settings });
+      const workspace = await window.simpleton.createWorkspace({ repoId: repo, task: withAttachments(task, attachments.paths), agent, ...settings });
       setTask("");
+      attachments.clear();
       onCreated(workspace);
     } catch (e) {
       setError(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(e));
@@ -77,8 +80,10 @@ export function Composer({ repos, repoId, tall, onCreated }: { repos: Repo[]; re
         files={() => window.simpleton.repoFiles(repo)}
         commands={agent === "claude-code" ? () => window.simpleton.commands(agent, repo) : undefined}
         className={tall ? "max-h-[50vh] min-h-[9em]" : "max-h-60 min-h-[3em]"}
+        attachments={attachments}
       >
         <div className="-ml-1 mt-2 flex items-center gap-2">
+          <AttachButton attachments={attachments} />
           <RunSettings choices={choices} />
           <button
             type="button"

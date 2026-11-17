@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
 import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
+import * as attachments from "./attachments";
 import * as auth from "./auth";
 import * as commands from "./commands";
 import * as images from "./images";
@@ -46,6 +47,8 @@ export function registerIpc() {
   ipcMain.handle(channels.readImage, (_event, path: string) => images.read(path));
   ipcMain.handle(channels.copyImage, (_event, bytes: Uint8Array) => images.copy(bytes));
   ipcMain.handle(channels.saveImage, (event, suggested: string, bytes: Uint8Array) => images.save(BrowserWindow.fromWebContents(event.sender), suggested, bytes));
+  ipcMain.handle(channels.saveAttachment, (_event, name: string, bytes: Uint8Array) => attachments.save(name, bytes));
+  ipcMain.handle(channels.pickAttachments, (event) => attachments.pick(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.handle(channels.repoFiles, (_event, repoId: string) => workspaces.repoFiles(repoId));
   ipcMain.handle(channels.commands, (_event, agent: Agent, repoId: string) => {
     const repo = store.get().repos.find((r) => r.id === repoId);
