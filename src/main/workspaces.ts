@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { app } from "electron";
 import type { NewWorkspace, Repo, SetupStep, Workspace } from "@shared/types";
 import * as agents from "./agents";
@@ -25,10 +25,11 @@ async function uniqueBranch(repo: Repo, slug: string, except?: string) {
 }
 
 async function copyEnvFiles(from: string, to: string) {
-  const entries = await readdir(from, { withFileTypes: true }).catch(() => []);
-  for (const entry of entries) {
-    if (!entry.isFile() || !/^\.env/.test(entry.name) || existsSync(join(to, entry.name))) continue;
-    await copyFile(join(from, entry.name), join(to, entry.name)).catch(() => undefined);
+  const ignored = await git.ignoredFiles(from).catch(() => []);
+  for (const path of ignored) {
+    if (!/^\.env/.test(basename(path)) || existsSync(join(to, path))) continue;
+    await mkdir(dirname(join(to, path)), { recursive: true }).catch(() => undefined);
+    await copyFile(join(from, path), join(to, path)).catch(() => undefined);
   }
 }
 
@@ -185,4 +186,27 @@ export async function changes(id: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace || workspace.status === "setup") return [];
   return git.changes(workspace.path, workspace.base);
+}
+
+const maxEditable = 2 * 1024 * 1024;
+
+function inside(id: string, path: string) {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  if (!workspace || workspace.status === "setup") throw new Error("Unknown workspace");
+  const full = resolve(workspace.path, path);
+  if (!full.startsWith(workspace.path + sep)) throw new Error("Path is outside the workspace");
+  return full;
+}
+
+export async function readText(id: string, path: string) {
+  const full = inside(id, path);
+  if ((await stat(full)).size > maxEditable) throw new Error("File is too large to edit here");
+  const content = await readFile(full);
+  if (content.includes(0)) throw new Error("Binary files can't be edited");
+  return content.toString("utf8");
+}
+
+export async function writeText(id: string, path: string, text: string) {
+  const full = inside(id, path);
+  await writeFile(full, text);
 }

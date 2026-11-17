@@ -219,8 +219,13 @@ export type Api = {
   changes: (id: string) => Promise<FileChange[]>;
   file: (id: string, path: string) => Promise<FileView>;
   files: (id: string) => Promise<string[]>;
+  readText: (id: string, path: string) => Promise<string>;
+  writeText: (id: string, path: string, text: string) => Promise<void>;
   repoFiles: (repoId: string) => Promise<string[]>;
   openImage: (path: string) => Promise<void>;
+  readImage: (path: string) => Promise<Uint8Array>;
+  copyImage: (bytes: Uint8Array) => Promise<void>;
+  saveImage: (suggested: string, bytes: Uint8Array) => Promise<string | null>;
   commands: (agent: Agent, repoId: string) => Promise<Command[]>;
   setTheme: (theme: Theme) => Promise<void>;
   models: () => Promise<ModelCatalog>;
@@ -259,8 +264,13 @@ export const channels = {
   changes: "workspace:changes",
   file: "workspace:file",
   files: "workspace:files",
+  readText: "workspace:read-text",
+  writeText: "workspace:write-text",
   repoFiles: "repo:files",
   openImage: "image:open",
+  readImage: "image:read",
+  copyImage: "image:copy",
+  saveImage: "image:save",
   commands: "agent:commands",
   setTheme: "app:theme",
   models: "agent:models",

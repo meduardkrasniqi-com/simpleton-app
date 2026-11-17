@@ -39,7 +39,12 @@ export function registerIpc() {
 
   ipcMain.handle(channels.file, (_event, id: string, path: string) => workspaces.file(id, path));
   ipcMain.handle(channels.files, (_event, id: string) => workspaces.files(id));
+  ipcMain.handle(channels.readText, (_event, id: string, path: string) => workspaces.readText(id, path));
+  ipcMain.handle(channels.writeText, (_event, id: string, path: string, text: string) => workspaces.writeText(id, path, text));
   ipcMain.handle(channels.openImage, (_event, path: string) => images.open(path));
+  ipcMain.handle(channels.readImage, (_event, path: string) => images.read(path));
+  ipcMain.handle(channels.copyImage, (_event, bytes: Uint8Array) => images.copy(bytes));
+  ipcMain.handle(channels.saveImage, (event, suggested: string, bytes: Uint8Array) => images.save(BrowserWindow.fromWebContents(event.sender), suggested, bytes));
   ipcMain.handle(channels.repoFiles, (_event, repoId: string) => workspaces.repoFiles(repoId));
   ipcMain.handle(channels.commands, (_event, agent: Agent, repoId: string) => {
     const repo = store.get().repos.find((r) => r.id === repoId);

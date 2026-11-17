@@ -1,6 +1,6 @@
-import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { Annotator } from "@/components/Annotator";
 import { cn } from "@/lib/utils";
 
 const imagePattern = /\.(png|jpe?g|gif|webp|svg)$/i;
@@ -20,66 +20,6 @@ const url = (path: string) => `simpleton-image://local${path.split("/").map(enco
 export type Picture = { path: string; alt?: string };
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-
-const arrow = "grid size-9 place-items-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white";
-
-function Viewer({ items, index, onIndex, onClose }: { items: Picture[]; index: number; onIndex: (index: number) => void; onClose: () => void }) {
-  const item = items[index];
-  const many = items.length > 1;
-  const step = (by: number) => onIndex((index + by + items.length) % items.length);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      } else if (many && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-        e.stopPropagation();
-        e.preventDefault();
-        onIndex((index + (e.key === "ArrowLeft" ? -1 : 1) + items.length) % items.length);
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose, onIndex, index, many, items.length]);
-
-  if (!item) return null;
-
-  return createPortal(
-    <div className="no-drag fixed inset-0 z-50 flex animate-fade flex-col bg-black/75 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="flex h-12 shrink-0 items-center gap-2 pl-24 pr-3 text-white/80">
-        <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={item.path}>
-          {item.path}
-        </span>
-        {many && (
-          <span className="shrink-0 px-1 text-[12px] tabular-nums text-white/60">
-            {index + 1} / {items.length}
-          </span>
-        )}
-        <button type="button" onClick={() => window.simpleton.openImage(item.path)} aria-label="Open in Preview" title="Open in Preview" className="grid size-7 place-items-center rounded-md hover:bg-white/10 hover:text-white">
-          <ExternalLink className="size-4" />
-        </button>
-        <button type="button" onClick={onClose} aria-label="Close" className="grid size-7 place-items-center rounded-md hover:bg-white/10 hover:text-white">
-          <X className="size-4" />
-        </button>
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center gap-4 px-6 pb-8" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-        {many && (
-          <button type="button" onClick={() => step(-1)} aria-label="Previous image" className={arrow}>
-            <ChevronLeft className="size-5" />
-          </button>
-        )}
-        <img key={item.path} src={url(item.path)} alt={item.alt || nameOf(item.path)} className="min-w-0 max-h-full max-w-full flex-1 animate-pop rounded-lg object-contain shadow-[0_24px_64px_rgba(0,0,0,0.5)]" />
-        {many && (
-          <button type="button" onClick={() => step(1)} aria-label="Next image" className={arrow}>
-            <ChevronRight className="size-5" />
-          </button>
-        )}
-      </div>
-    </div>,
-    document.body,
-  );
-}
 
 const slideArrow = "absolute top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-ink/[0.08] bg-raised/90 text-soft opacity-0 shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur transition-opacity hover:text-ink group-hover/gallery:opacity-100 focus-visible:opacity-100";
 
@@ -137,7 +77,7 @@ export function Gallery({ items }: { items: Picture[] }) {
           {item.alt && <span className="min-w-0 truncate text-[12.5px] text-mute">{item.alt}</span>}
         </div>
       )}
-      {open && <Viewer items={shown} index={current} onIndex={setIndex} onClose={() => setOpen(false)} />}
+      {open && <Annotator path={item.path} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -158,7 +98,7 @@ export function Shot({ path, alt, className, quiet }: { path: string; alt?: stri
         <img src={url(path)} alt={alt || name} onLoad={() => setState("ok")} onError={() => setState("missing")} className={cn("block max-h-72 max-w-full object-contain", state === "loading" && "invisible")} />
         {state === "ok" && <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/55 to-transparent px-2.5 pb-1.5 pt-5 text-left text-[11.5px] font-medium text-white opacity-0 transition-opacity group-hover/shot:opacity-100">{alt || name}</span>}
       </button>
-      {open && <Viewer items={[{ path, alt: alt || name }]} index={0} onIndex={() => undefined} onClose={() => setOpen(false)} />}
+      {open && <Annotator path={path} onClose={() => setOpen(false)} />}
     </>
   );
 }

@@ -1,7 +1,7 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { pathToFileURL } from "node:url";
-import { net, protocol, shell } from "electron";
+import { clipboard, ClipboardItem, dialog, net, protocol, shell, type BrowserWindow } from "electron";
 
 export const scheme = "simpleton-image";
 
@@ -24,4 +24,22 @@ export function handle() {
 
 export async function open(path: string) {
   if (isImage(path)) await shell.openPath(path);
+}
+
+export async function read(path: string) {
+  if (!isImage(path) || extname(path).toLowerCase() === ".svg") throw new Error("Not an image");
+  return new Uint8Array(await readFile(path));
+}
+
+export async function copy(bytes: Uint8Array) {
+  await clipboard.write([new ClipboardItem({ "image/png": new Blob([Buffer.from(bytes)], { type: "image/png" }) })]);
+}
+
+export async function save(window: BrowserWindow | null, suggested: string, bytes: Uint8Array) {
+  const options = { defaultPath: suggested, filters: [{ name: "PNG image", extensions: ["png"] }] };
+  const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return null;
+  const target = extname(result.filePath).toLowerCase() === ".png" ? result.filePath : `${result.filePath}.png`;
+  await writeFile(target, Buffer.from(bytes));
+  return target;
 }

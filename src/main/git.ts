@@ -127,6 +127,11 @@ function parse(diff: string): FileView {
   return { binary: false, truncated: false, lines };
 }
 
+export async function ignoredFiles(worktree: string) {
+  const { stdout } = await exec("git", ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 });
+  return stdout.split("\0").filter((path) => path && !path.endsWith("/"));
+}
+
 export async function listFiles(worktree: string) {
   const list = (args: string[]) => exec("git", ["ls-files", "-z", ...args], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 }).then(({ stdout }) => stdout.split("\0"));
   const [visible, ignored, removed] = await Promise.all([list(["--cached", "--others", "--exclude-standard"]), list(["--others", "--ignored", "--exclude-standard", "--directory"]).catch(() => []), list(["--deleted"])]);
