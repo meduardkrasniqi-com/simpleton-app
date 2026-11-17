@@ -1,9 +1,11 @@
-import { AppWindow, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
+import { AppWindow, Archive, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AppState, Preview, Share, Theme, User, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { StatusIcon } from "@/components/ui";
 import { cn, displayName, subtitle } from "@/lib/utils";
+
+const merged = (w: Workspace) => w.status === "merged" || w.prState === "merged";
 
 const row = "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13.5px]";
 
@@ -147,7 +149,7 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
   const { collapsed, toggle } = useCollapsed();
 
   const removeWorkspace = (w: Workspace) => {
-    if (confirm(`Delete ${displayName(w)}? The worktree and branch ${w.branch} will be removed.`)) window.simpleton.removeWorkspace(w.id);
+    if (merged(w) || confirm(`Delete ${displayName(w)}? The worktree and branch ${w.branch} will be removed.`)) window.simpleton.removeWorkspace(w.id);
   };
 
   const removeRepo = (id: string, name: string) => {
@@ -174,7 +176,7 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
                   </span>
                   <span className="min-w-0 truncate">{repo.name}</span>
                 </button>
-                <button type="button" onClick={() => removeRepo(repo.id, repo.name)} aria-label={`Remove ${repo.name}`} className="hidden size-6 place-items-center rounded hover:bg-ink/[0.06] group-hover/repo:grid">
+                <button type="button" onClick={() => removeRepo(repo.id, repo.name)} aria-label={`Remove ${repo.name}`} className="hidden size-6 place-items-center rounded hover:bg-ink/[0.06] group-hover/head:grid">
                   <X className="size-3.5" />
                 </button>
                 <button type="button" onClick={() => onNewTask(repo.id)} aria-label={`New task in ${repo.name}`} className="grid size-6 place-items-center rounded hover:bg-ink/[0.06]">
@@ -199,14 +201,14 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-2 group-hover/ws:pr-6">
-                              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] leading-[18px]", active === w.id && "font-medium", (w.status === "merged" || w.prState === "merged") && "text-mute")}>{displayName(w)}</span>
+                              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] leading-[18px]", active === w.id && "font-medium", merged(w) && "text-mute")}>{displayName(w)}</span>
                               <Indicators preview={state.previews[w.id]} share={state.shares[w.id]} />
                             </span>
                             <span className="mt-px block truncate text-[12px] leading-4 text-mute">{subtitle(w)}</span>
                           </span>
                         </button>
-                        <button type="button" onClick={() => removeWorkspace(w)} aria-label={`Delete ${displayName(w)}`} className="absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-ink/[0.06] hover:text-minus group-hover/ws:grid">
-                          <Trash2 className="size-3.5" />
+                        <button type="button" onClick={() => removeWorkspace(w)} aria-label={`${merged(w) ? "Archive" : "Delete"} ${displayName(w)}`} title={merged(w) ? "Archive" : "Delete"} className={cn("absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-ink/[0.06] group-hover/ws:grid", merged(w) ? "hover:text-ink" : "hover:text-minus")}>
+                          {merged(w) ? <Archive className="size-3.5" /> : <Trash2 className="size-3.5" />}
                         </button>
                       </li>
                     ))}

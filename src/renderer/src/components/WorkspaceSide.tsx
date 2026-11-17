@@ -138,9 +138,7 @@ function PrButton({ workspace, pending }: { workspace: Workspace; pending: Pendi
   const busy = workspace.status === "working" || workspace.status === "setup";
 
   if (workspace.prState === "merged" || workspace.status === "merged") {
-    const archive = () => {
-      if (confirm(`Archive ${workspace.branch}? The worktree and branch will be removed.`)) window.simpleton.removeWorkspace(workspace.id);
-    };
+    const archive = () => window.simpleton.removeWorkspace(workspace.id);
     return (
       <button type="button" onClick={archive} disabled={busy} className={cn(outline, size)}>
         <Archive className="size-3.5" />

@@ -152,12 +152,17 @@ export async function removeWorkspace(id: string) {
   const { repos, workspaces } = store.get();
   const workspace = workspaces.find((w) => w.id === id);
   if (!workspace) return;
-  await agents.forget(id);
-  await apps.forget(id);
-  await share.stop(id);
-  await store.update((s) => ({ ...s, workspaces: s.workspaces.filter((w) => w.id !== id) }));
+  const saved = store.update((s) => {
+    const previews = { ...s.previews };
+    const shares = { ...s.shares };
+    delete previews[id];
+    delete shares[id];
+    return { ...s, workspaces: s.workspaces.filter((w) => w.id !== id), previews, shares };
+  });
+  await Promise.allSettled([agents.forget(id), apps.forget(id), share.stop(id)]);
   const repo = repos.find((r) => r.id === workspace.repoId);
   if (repo) git.removeWorktree(repo.path, workspace.path, workspace.branch, join(trashDir(), randomUUID())).catch(() => undefined);
+  await saved;
 }
 
 export function emptyTrash() {
