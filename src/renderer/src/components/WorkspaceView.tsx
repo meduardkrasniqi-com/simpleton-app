@@ -1,8 +1,10 @@
-import { ArrowDown, ArrowUp, Bot, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { modes, type Entry, type FileChange, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
+import { FileIcon } from "@/components/FileIcon";
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
+import { Activity, Loader } from "@/components/Loader";
 import { Markdown } from "@/components/Markdown";
 import { PromptBox, Tokens } from "@/components/PromptBox";
 import { AnsweredQuestion, ApprovalCard, PlanCard, QuestionCard } from "@/components/Prompts";
@@ -40,8 +42,8 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
   const [open, setOpen] = useState(false);
   if (entry.approval?.state === "pending") return <ApprovalCard entry={entry} icon={icons[entry.verb] ?? Wrench} onReply={onReply} />;
   const running = entry.state === "running";
-  const Icon = running ? LoaderCircle : (icons[entry.verb] ?? Wrench);
-  const icon = <Icon className={cn("size-3.5 shrink-0", running && "animate-spin", entry.state === "failed" ? "text-minus" : "text-mute")} />;
+  const Icon = icons[entry.verb] ?? Wrench;
+  const icon = running ? <Loader className="text-soft" /> : <Icon className={cn("size-3.5 shrink-0", entry.state === "failed" ? "text-minus" : "text-mute")} />;
   const denied = entry.approval?.state === "denied" && <span className="shrink-0 text-[12px] text-minus">Denied</span>;
 
   if (entry.command) {
@@ -52,8 +54,8 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
             <span className="grid place-items-center transition-opacity group-hover:opacity-0">{icon}</span>
             <ChevronRight className={cn("absolute size-3.5 text-mute opacity-0 transition-[opacity,transform] group-hover:opacity-100", open && "rotate-90")} />
           </span>
-          <span className="shrink-0 font-medium text-soft">{entry.verb}</span>
-          <span className="min-w-0 truncate font-mono text-[12px] text-mute group-hover:text-ink">{entry.target}</span>
+          <span className={cn("shrink-0 font-medium", running ? "shimmer" : "text-soft")}>{entry.verb}</span>
+          <span className={cn("min-w-0 truncate font-mono text-[12px]", running ? "shimmer" : "text-mute group-hover:text-ink")}>{entry.target}</span>
           {denied}
         </button>
         {open && (
@@ -72,14 +74,14 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
   return (
     <div className="flex h-6 items-center gap-2 text-[12.5px]">
       {icon}
-      <span className="shrink-0 font-medium text-soft">{entry.verb}</span>
+      <span className={cn("shrink-0 font-medium", running ? "shimmer" : "text-soft")}>{entry.verb}</span>
       {entry.target &&
         (openable(entry) ? (
-          <button type="button" onClick={() => onOpen(entry.target)} className="min-w-0 truncate font-mono text-[12px] text-mute underline decoration-transparent underline-offset-2 hover:text-ink hover:decoration-ink/30" title={entry.target}>
+          <button type="button" onClick={() => onOpen(entry.target)} className={cn("min-w-0 truncate font-mono text-[12px] underline decoration-transparent underline-offset-2 hover:decoration-ink/30", running ? "shimmer" : "text-mute hover:text-ink")} title={entry.target}>
             {entry.target}
           </button>
         ) : (
-          <span className="selectable min-w-0 truncate font-mono text-[12px] text-mute" title={entry.target}>
+          <span className={cn("selectable min-w-0 truncate font-mono text-[12px]", running ? "shimmer" : "text-mute")} title={entry.target}>
             {entry.target}
           </span>
         ))}
@@ -508,6 +510,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
             </Tab>
             {tabs.files.map((path) => (
               <Tab key={path} active={tabs.active === path} title={path} onSelect={() => setTabs((t) => ({ ...t, active: path }))} onClose={() => closeFile(path)}>
+                <FileIcon path={path} />
                 <span className="max-w-[180px] truncate">{basename(path)}</span>
               </Tab>
             ))}
@@ -558,7 +561,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                       <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />
                     </div>
                   ))}
-                  {thinking && <LoaderCircle className={cn("size-3.5 animate-spin text-mute", entries?.length ? "mt-4" : "")} />}
+                  {thinking && <Activity id={`${workspace.id}:${entries?.filter((e) => e.kind === "user").length ?? 0}`} className={entries?.length ? "mt-4" : ""} />}
                 </div>
               </div>
               <div className="relative shrink-0 px-8 pb-5">

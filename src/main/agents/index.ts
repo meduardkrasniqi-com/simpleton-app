@@ -312,6 +312,7 @@ export async function respond(id: string, entryId: string, reply: Reply) {
 }
 
 export async function recover() {
+  if (!app.isPackaged && process.env.SIMPLETON_DEMO === "1") return;
   const stale = store.get().workspaces.filter((w) => w.status === "working");
   for (const w of stale) await patch(w.id, { status: w.sessionId ? "ready" : "input" });
 }

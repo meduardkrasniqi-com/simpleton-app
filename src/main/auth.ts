@@ -87,6 +87,10 @@ async function clear() {
 }
 
 export async function restore() {
+  if (!app.isPackaged && process.env.SIMPLETON_SKIP_AUTH === "1") {
+    set({ status: "signed-in", user: { id: "dev", name: "Dev", email: "dev@localhost", image: null } });
+    return;
+  }
   const saved = await read();
   if (!saved || expired(saved.expiresAt)) {
     await clear();

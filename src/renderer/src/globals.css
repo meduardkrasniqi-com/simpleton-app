@@ -20,12 +20,22 @@
   --color-merged: #8250df;
   --color-plus: #15803d;
   --color-minus: #dc2626;
+  --color-modified: #9a6700;
+  --color-edited: #2f81f7;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --animate-pop: pop 140ms cubic-bezier(0.2, 0.9, 0.3, 1);
   --animate-fade: fade 140ms ease-out;
   --animate-slide-in: slide-in 160ms cubic-bezier(0.2, 0.9, 0.3, 1);
   --animate-slide-back: slide-back 160ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-rise: rise 260ms cubic-bezier(0.2, 0.9, 0.3, 1);
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+  }
 
   @keyframes pop {
     from {
@@ -77,6 +87,8 @@
     --color-merged: #a371f7;
     --color-plus: #4ade80;
     --color-minus: #f87171;
+    --color-modified: #e2c08d;
+    --color-edited: #4c9df3;
   }
 }
 
@@ -91,6 +103,86 @@
     color: var(--shiki-dark);
     font-style: var(--shiki-dark-font-style);
     font-weight: var(--shiki-dark-font-weight);
+  }
+}
+
+.loader {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  overflow: visible;
+}
+
+.loader-track {
+  opacity: 0.2;
+}
+
+.loader-flow {
+  stroke-dasharray: 0.35 1.4;
+  animation: loader-flow 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.loader-node {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0.3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: loader-node 1.6s ease-in-out infinite;
+}
+
+@keyframes loader-flow {
+  from {
+    stroke-dashoffset: 0.35;
+  }
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+
+@keyframes loader-node {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  55% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--color-mute) 0%, var(--color-mute) 38%, var(--color-ink) 50%, var(--color-mute) 62%, var(--color-mute) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-flow,
+  .loader-node,
+  .shimmer {
+    animation: none;
+  }
+  .loader-node {
+    opacity: 1;
   }
 }
 

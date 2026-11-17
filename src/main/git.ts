@@ -83,16 +83,25 @@ async function lineCount(file: string) {
 
 export async function changes(worktree: string, base: string): Promise<FileChange[]> {
   const mergeBase = await git(worktree, ["merge-base", base, "HEAD"]).catch(() => base);
-  const tracked = await git(worktree, ["diff", "--numstat", mergeBase]);
-  const untracked = await git(worktree, ["ls-files", "--others", "--exclude-standard"]);
+  const [tracked, names, untracked] = await Promise.all([
+    git(worktree, ["diff", "--numstat", "--no-renames", mergeBase]),
+    git(worktree, ["diff", "--name-status", "--no-renames", mergeBase]),
+    git(worktree, ["ls-files", "--others", "--exclude-standard"]),
+  ]);
+  const statuses = new Map<string, FileChange["status"]>();
+  for (const line of names ? names.split("\n") : []) {
+    const [code, ...rest] = line.split("\t");
+    statuses.set(rest.join("\t"), code.startsWith("A") ? "added" : code.startsWith("D") ? "deleted" : "modified");
+  }
   const files: FileChange[] = tracked
     ? tracked.split("\n").map((line) => {
         const [added, removed, ...rest] = line.split("\t");
-        return { path: rest.join("\t"), added: Number(added) || 0, removed: Number(removed) || 0 };
+        const path = rest.join("\t");
+        return { path, added: Number(added) || 0, removed: Number(removed) || 0, status: statuses.get(path) ?? "modified" };
       })
     : [];
   for (const path of untracked ? untracked.split("\n") : []) {
-    files.push({ path, added: await lineCount(join(worktree, path)), removed: 0 });
+    files.push({ path, added: await lineCount(join(worktree, path)), removed: 0, status: "untracked" });
   }
   return files;
 }

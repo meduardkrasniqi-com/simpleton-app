@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { Workspace } from "@shared/types";
+import { Loader } from "@/components/Loader";
 import { cn, statusIcon } from "@/lib/utils";
 
 const button = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[8px] font-medium transition-colors active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40";
@@ -44,5 +45,6 @@ export function Mark({ size = 24 }: { size?: number }) {
 
 export function StatusIcon({ workspace, className }: { workspace: Workspace; className?: string }) {
   const { icon: Icon, className: tone, label } = statusIcon(workspace);
+  if (Icon === "loader") return <Loader aria-label={label} className={cn(tone, className)} />;
   return <Icon aria-label={label} className={cn("size-3.5 shrink-0", tone, className)} />;
 }

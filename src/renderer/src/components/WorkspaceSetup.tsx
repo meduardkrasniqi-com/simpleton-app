@@ -1,4 +1,5 @@
-import { Check, LoaderCircle, RotateCw, X } from "lucide-react";
+import { Check, RotateCw, X } from "lucide-react";
+import { Loader } from "@/components/Loader";
 import type { SetupStep, Workspace } from "@shared/types";
 import { outline, primary } from "@/components/ui";
 import { agents, cn } from "@/lib/utils";
@@ -36,13 +37,13 @@ export function WorkspaceSetup({ workspace }: { workspace: Workspace }) {
                   failed ? (
                     <X className="size-3.5" strokeWidth={2.5} />
                   ) : (
-                    <LoaderCircle className="size-3.5 animate-spin" />
+                    <Loader className="size-4" colorful />
                   )
                 ) : (
                   <span className="size-1.5 rounded-full bg-current" />
                 )}
               </span>
-              <span className="truncate">{label(step, workspace)}</span>
+              <span className={cn("truncate", active && !failed && "shimmer")}>{label(step, workspace)}</span>
               {step === "worktree" && (done || active) && <span className="min-w-0 truncate font-mono text-[12px] text-mute">{workspace.branch}</span>}
             </li>
           );

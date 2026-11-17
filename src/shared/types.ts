@@ -132,10 +132,13 @@ export type EntryEvent = {
   entry: Entry;
 };
 
+export type ChangeStatus = "added" | "modified" | "deleted" | "untracked";
+
 export type FileChange = {
   path: string;
   added: number;
   removed: number;
+  status?: ChangeStatus;
 };
 
 export type TermKind = "shell" | "app";

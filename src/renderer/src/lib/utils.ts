@@ -1,4 +1,5 @@
-import { CircleAlert, CircleCheck, CircleDashed, GitMerge, GitPullRequest, GitPullRequestClosed, LoaderCircle, type LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
+import type { ComponentType } from "react";
 import type { Agent, FileChange, Status, Workspace } from "@shared/types";
 
 export function cn(...classes: (string | false | null | undefined)[]) {
@@ -34,9 +35,9 @@ export const displayName = (w: Workspace) => w.title || humanize(w.branch.split(
 
 export const subtitle = (w: Workspace) => w.summary || w.task.trim().split("\n")[0];
 
-export function statusIcon(w: Workspace): { icon: LucideIcon; className: string; label: string } {
-  if (w.status === "setup") return { icon: LoaderCircle, className: "animate-spin text-mute", label: statuses.setup.label };
-  if (w.status === "working") return { icon: LoaderCircle, className: "animate-spin text-busy", label: statuses.working.label };
+export function statusIcon(w: Workspace): { icon: ComponentType<{ className?: string; "aria-label"?: string }> | "loader"; className: string; label: string } {
+  if (w.status === "setup") return { icon: "loader", className: "text-mute", label: statuses.setup.label };
+  if (w.status === "working") return { icon: "loader", className: "text-busy", label: statuses.working.label };
   if (w.status === "input") return { icon: CircleAlert, className: "text-ask", label: statuses.input.label };
   if (w.status === "merged" || w.prState === "merged") return { icon: GitMerge, className: "text-merged", label: "Merged" };
   if (w.prUrl && w.prState === "closed") return { icon: GitPullRequestClosed, className: "text-minus", label: "Pull request closed" };

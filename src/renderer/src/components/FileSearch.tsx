@@ -1,5 +1,6 @@
-import { FileText, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { FileIcon } from "@/components/FileIcon";
 import { Highlight, match } from "@/components/Fuzzy";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,7 @@ export function FileSearch({ workspaceId, onOpen, onClose }: { workspaceId: stri
             return (
               <li key={path} role="option" aria-selected={i === selected} data-index={i}>
                 <button type="button" onClick={() => open(path)} onMouseMove={() => i !== selected && setSelected(i)} className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px]", i === selected && "bg-ink/[0.06]")}>
-                  <FileText className="size-3.5 shrink-0 text-mute" />
+                  <FileIcon path={path} />
                   <span className="shrink-0 text-ink">
                     <Highlight text={name} offset={slash + 1} positions={positions} />
                   </span>

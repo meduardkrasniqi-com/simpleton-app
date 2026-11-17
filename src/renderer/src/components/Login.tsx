@@ -1,5 +1,5 @@
-import { LoaderCircle } from "lucide-react";
 import type { Auth } from "@shared/types";
+import { Loader } from "@/components/Loader";
 import { Mark, primary } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,7 @@ export function Login({ auth }: { auth: Auth }) {
           {waiting ? (
             <>
               <div className="mt-6 flex h-9 items-center gap-2 text-[13.5px] text-soft">
-                <LoaderCircle className="size-4 animate-spin" />
+                <Loader className="size-4" />
                 Waiting for browser
               </div>
               <button type="button" onClick={() => window.simpleton.cancelLogin()} className="mt-2 text-[13px] text-mute hover:text-ink">

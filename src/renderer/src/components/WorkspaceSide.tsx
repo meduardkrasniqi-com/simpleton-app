@@ -1,7 +1,9 @@
-import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, LoaderCircle, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
+import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { FileChange, Preview, Share, Workspace } from "@shared/types";
+import { ChangeLetter, changeTone, FileIcon } from "@/components/FileIcon";
 import { FileTree } from "@/components/FileTree";
+import { Loader } from "@/components/Loader";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { Dot, ghost, outline, primary, Stat } from "@/components/ui";
 import { cn, totals } from "@/lib/utils";
@@ -106,20 +108,26 @@ function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: 
             <>
               {files && files.length > 0 && (
                 <ul>
-                  {files.map((f) => (
-                    <li key={f.path}>
-                      <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
-                        <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{f.path}</span>
-                        <Stat added={f.added} removed={f.removed} className="text-[11.5px]" />
-                      </button>
-                    </li>
-                  ))}
+                  {files.map((f) => {
+                    const slash = f.path.lastIndexOf("/");
+                    return (
+                      <li key={f.path}>
+                        <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left font-mono text-[12px]", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
+                          <FileIcon path={f.path} />
+                          <span className={cn("shrink-0 truncate", changeTone(f.status), f.status === "deleted" && "line-through")}>{f.path.slice(slash + 1)}</span>
+                          <span className="min-w-0 flex-1 truncate text-[11.5px] text-mute">{slash > 0 ? f.path.slice(0, slash) : ""}</span>
+                          <Stat added={f.added} removed={f.removed} className="text-[11.5px]" />
+                          <ChangeLetter status={f.status} />
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
               {files && files.length === 0 && <p className="px-2 text-[12.5px] text-mute">No changes yet</p>}
             </>
           )}
-          {tab === "all" && <FileTree id={workspace.id} files={tree} active={activeFile} onOpen={onOpenFile} />}
+          {tab === "all" && <FileTree id={workspace.id} files={tree} changes={files ?? []} active={activeFile} onOpen={onOpenFile} />}
         </div>
       )}
     </section>
@@ -186,7 +194,7 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
         </span>
         <p className="mt-2.5 text-[12.5px] text-mute">No links yet</p>
         <button type="button" onClick={create} disabled={creating || workspace.status === "setup"} className={cn(outline, size, "mt-3 disabled:opacity-100")}>
-          {creating ? <LoaderCircle className="size-3.5 animate-spin" /> : <Link className="size-3.5" />}
+          {creating ? <Loader /> : <Link className="size-3.5" />}
           {creating ? "Creating link" : "Create share link"}
         </button>
       </div>
@@ -197,7 +205,7 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
     <div>
       {live && (
         <LinkRow
-          icon={preview.state === "running" ? <Dot className="bg-ready" /> : <LoaderCircle className="size-3.5 animate-spin text-mute" />}
+          icon={preview.state === "running" ? <Dot className="bg-ready" /> : <Loader className="text-mute" />}
           label="App"
           detail={`localhost:${preview.port}`}
           trailing={preview.state === "running" && <ArrowUpRight className="size-3.5" />}
@@ -218,7 +226,7 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
         <LinkRow
           icon={
             share.status === "connecting" ? (
-              <LoaderCircle className="size-3.5 animate-spin text-mute" />
+              <Loader className="text-mute" />
             ) : (
               <Link className={cn("size-3.5", share.status === "live" ? "text-ready" : "text-minus")} />
             )
@@ -251,7 +259,7 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
         </LinkRow>
       ) : (
         <LinkRow
-          icon={creating ? <LoaderCircle className="size-3.5 animate-spin text-mute" /> : <Link className="size-3.5 text-mute" />}
+          icon={creating ? <Loader className="text-mute" /> : <Link className="size-3.5 text-mute" />}
           label={creating ? "Creating link" : "Create share link"}
           muted
           disabled={creating}

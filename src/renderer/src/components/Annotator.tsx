@@ -1,6 +1,7 @@
-import { ArrowUpRight, Ban, Check, Copy, Crop, Download, ExternalLink, LoaderCircle, MousePointer2, PenLine, Redo2, Square, Type, Undo2, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Ban, Check, Copy, Crop, Download, ExternalLink, MousePointer2, PenLine, Redo2, Square, Type, Undo2, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Loader } from "@/components/Loader";
 import { cn } from "@/lib/utils";
 
 type Pt = { x: number; y: number };
@@ -810,7 +811,7 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
       </header>
 
       <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center">
-        {!bitmap && !failed && <LoaderCircle className="size-5 animate-spin text-white/40" />}
+        {!bitmap && !failed && <Loader className="size-6 text-white/50" />}
         {failed && <p className="text-[13px] text-white/60">Couldn't open this image</p>}
         {bitmap && scale > 0 && (
           <div className="relative animate-pop shadow-[0_24px_80px_rgba(0,0,0,0.55)]" style={{ width: layout.width * scale, height: layout.height * scale }}>

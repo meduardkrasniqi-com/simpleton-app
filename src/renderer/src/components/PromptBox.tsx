@@ -1,7 +1,8 @@
-import { ChevronRight, FileText, Folder, LoaderCircle } from "lucide-react";
+import { ChevronRight, FileText, Folder } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import type { Command } from "@shared/types";
 import { Highlight, match } from "@/components/Fuzzy";
+import { Loader } from "@/components/Loader";
 import { cn } from "@/lib/utils";
 
 type Trigger = { kind: "file" | "command"; start: number; end: number; query: string };
@@ -320,7 +321,7 @@ export function PromptBox({
           <ul ref={list} role="listbox" className="max-h-[min(320px,40vh)] overflow-y-auto p-1.5">
             {loading && (
               <li className="flex h-8 items-center px-2">
-                <LoaderCircle className="size-3.5 animate-spin text-mute" />
+                <Loader className="text-mute" />
               </li>
             )}
             {items.map((item, i) => (
