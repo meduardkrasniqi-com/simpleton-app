@@ -1,5 +1,6 @@
 import { useId } from "react";
-import { cn } from "@/lib/utils";
+import type { Workspace } from "@shared/types";
+import { cn, statusIcon } from "@/lib/utils";
 
 const button = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[8px] font-medium transition-colors active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40";
 
@@ -39,4 +40,9 @@ export function Mark({ size = 24 }: { size?: number }) {
       <circle cx="16" cy="8.5" r="2.4" fill="#ffffff" />
     </svg>
   );
+}
+
+export function StatusIcon({ workspace, className }: { workspace: Workspace; className?: string }) {
+  const { icon: Icon, className: tone, label } = statusIcon(workspace);
+  return <Icon aria-label={label} className={cn("size-3.5 shrink-0", tone, className)} />;
 }

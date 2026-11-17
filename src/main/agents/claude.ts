@@ -1,6 +1,6 @@
 import { isAbsolute, relative } from "node:path";
 import type { DiffLine, Detail, Entry, Question, Reply } from "@shared/types";
-import { command, instructions, list, record, shorten, text, type Answer, type Driver, type Json, type Pending, type Update } from "./driver";
+import { command, instructions, list, output, record, shorten, text, type Answer, type Driver, type Json, type Pending, type Update } from "./driver";
 
 type Tool = Extract<Entry, { kind: "tool" }>;
 
@@ -228,7 +228,9 @@ export const claude: Driver = {
             updates.push({ entry: { id: `${runId}:${seq++}`, kind: "assistant", text: text(block.text).trim() } });
           }
           if (block.type === "tool_use" && !hidden.has(text(block.name))) {
-            const tool: Tool = { id: text(block.id) || `${runId}:${seq++}`, kind: "tool", ...describe(text(block.name), record(block.input), cwd), state: "running" };
+            const input = record(block.input);
+            const full = text(block.name) === "Bash" ? text(input.command).trim() : "";
+            const tool: Tool = { id: text(block.id) || `${runId}:${seq++}`, kind: "tool", ...describe(text(block.name), input, cwd), state: "running", ...(full ? { command: full } : {}) };
             tools.set(tool.id, tool);
             updates.push({ entry: tool });
           }
@@ -240,7 +242,7 @@ export const claude: Driver = {
           if (block.type === "tool_result" && text(block.tool_use_id)) updates.push({ settled: text(block.tool_use_id) });
           const tool = block.type === "tool_result" ? tools.get(text(block.tool_use_id)) : undefined;
           if (!tool) continue;
-          const done: Tool = { ...tool, state: block.is_error ? "failed" : "done" };
+          const done: Tool = { ...tool, state: block.is_error ? "failed" : "done", ...(tool.command ? { output: output(block.content) } : {}) };
           tools.set(done.id, done);
           updates.push({ entry: done });
         }

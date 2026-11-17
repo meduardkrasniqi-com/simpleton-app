@@ -1,6 +1,6 @@
 import { isAbsolute, relative } from "node:path";
 import type { Entry, ToolState } from "@shared/types";
-import { command, instructions, list, record, shorten, text, type Driver, type Json, type Update } from "./driver";
+import { command, instructions, list, output, record, shorten, text, type Driver, type Json, type Update } from "./driver";
 
 const sandboxes = new Set(["read-only", "workspace-write", "danger-full-access"]);
 
@@ -22,8 +22,10 @@ function entry(item: Json, id: string, cwd: string): Entry | null {
   switch (item.type) {
     case "agent_message":
       return text(item.text).trim() ? { id, kind: "assistant", text: text(item.text).trim() } : null;
-    case "command_execution":
-      return tool("Run", command(unwrap(text(item.command)), cwd));
+    case "command_execution": {
+      const full = unwrap(text(item.command)).trim();
+      return { ...tool("Run", command(full, cwd)), command: full, output: output(item.aggregated_output) } as Entry;
+    }
     case "file_change": {
       const paths = list(item.changes).map((change) => {
         const path = text(record(change).path);

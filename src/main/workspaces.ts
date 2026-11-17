@@ -7,32 +7,17 @@ import type { NewWorkspace, Repo, SetupStep, Workspace } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as git from "./git";
+import * as naming from "./naming";
 import * as share from "./share";
 import * as store from "./store";
 
 const worktreesDir = () => join(app.getPath("userData"), "worktrees");
 const trashDir = () => join(worktreesDir(), ".trash");
 
-const stopwords = new Set(["a", "an", "the", "to", "of", "for", "in", "on", "at", "and", "or", "with", "from", "into", "is", "are", "be", "it", "this", "that", "please"]);
-
-export function slugify(task: string) {
-  const slug = task
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter((word) => !stopwords.has(word))
-    .slice(0, 5)
-    .join("-")
-    .replace(/-+/g, "-")
-    .slice(0, 48)
-    .replace(/-$/, "");
-  return slug || "task";
-}
-
-async function uniqueBranch(repo: Repo, task: string) {
-  const base = slugify(task);
-  const taken = new Set(store.get().workspaces.map((w) => w.branch));
+async function uniqueBranch(repo: Repo, slug: string, except?: string) {
+  const owner = await naming.prefix(repo.path);
+  const base = owner ? `${owner}/${slug}` : slug;
+  const taken = new Set(store.get().workspaces.filter((w) => w.id !== except).map((w) => w.branch));
   for (let i = 1; ; i++) {
     const candidate = i === 1 ? base : `${base}-${i}`;
     if (!taken.has(candidate) && !(await git.branchExists(repo.path, candidate))) return candidate;
@@ -66,13 +51,15 @@ export async function removeRepo(id: string) {
 export async function createWorkspace(input: NewWorkspace) {
   const repo = store.get().repos.find((r) => r.id === input.repoId);
   if (!repo) throw new Error("Unknown repository");
-  const branch = await uniqueBranch(repo, input.task);
+  const guess = naming.guess(input.task);
+  const branch = await uniqueBranch(repo, guess.slug);
   const id = randomUUID();
-  const path = join(worktreesDir(), repo.name, `${branch}-${id.slice(0, 6)}`);
+  const path = join(worktreesDir(), repo.name, `${guess.slug}-${id.slice(0, 6)}`);
   const workspace: Workspace = {
     id,
     repoId: repo.id,
     task: input.task.trim(),
+    title: guess.title,
     agent: input.agent,
     branch,
     base: "",
@@ -112,17 +99,24 @@ async function setup(id: string) {
     if (!workspace || !repo) return;
 
     await patch(id, { status: "setup", setup: { step } });
-    const base = workspace.base || (await git.remoteBase(repo.path)) || (await git.currentBranch(repo.path));
+    const fresh = !existsSync(workspace.path);
+    const [remote, named] = await Promise.all([workspace.base ? workspace.base : git.remoteBase(repo.path), fresh && !workspace.summary ? naming.name(workspace.task) : null]);
+    const base = remote || (await git.currentBranch(repo.path));
     if (!find(id)) return;
+    let branch = workspace.branch;
+    if (named?.summary) {
+      branch = await uniqueBranch(repo, named.slug, id);
+      await patch(id, { branch, title: named.title, summary: named.summary });
+    }
 
     step = "worktree";
     await patch(id, { base, setup: { step } });
     if (!existsSync(workspace.path)) {
       await mkdir(join(worktreesDir(), repo.name), { recursive: true });
-      await git.addWorktree(repo.path, workspace.path, workspace.branch, base);
+      await git.addWorktree(repo.path, workspace.path, branch, base);
     }
     if (!find(id)) {
-      await git.removeWorktree(repo.path, workspace.path, workspace.branch);
+      await git.removeWorktree(repo.path, workspace.path, branch);
       return;
     }
 

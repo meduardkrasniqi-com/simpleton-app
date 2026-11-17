@@ -5,7 +5,8 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { app } from "electron";
-import { defaultModes, type Agent, type AgentSettings, type Entry, type EntryEvent, type Reply, type Workspace } from "@shared/types";
+import { defaultModes, type Agent, type AgentSettings, type Entry, type EntryEvent, type FileChange, type Reply, type Workspace } from "@shared/types";
+import * as git from "../git";
 import * as models from "../models";
 import * as pr from "../pr";
 import * as store from "../store";
@@ -92,6 +93,14 @@ function settleTools(id: string) {
   }
 }
 
+const snapshot = (workspace: Workspace) => (workspace.base ? git.changes(workspace.path, workspace.base).catch(() => null) : Promise.resolve(null));
+
+function touched(before: FileChange[] | null, after: FileChange[] | null) {
+  if (!before || !after) return [];
+  const prior = new Map(before.map((f) => [f.path, `${f.added}:${f.removed}`]));
+  return after.filter((f) => prior.get(f.path) !== `${f.added}:${f.removed}`);
+}
+
 export async function send(id: string, message: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   const text = message.trim();
@@ -114,6 +123,8 @@ export async function send(id: string, message: string) {
   const bin = await binary(workspace.agent);
   if (!bin) return fail(missing[workspace.agent]);
 
+  const started = Date.now();
+  const before = snapshot(workspace);
   const driver = drivers[workspace.agent];
   const runId = randomUUID().slice(0, 8);
   const parse = driver.parser(workspace.path, runId);
@@ -205,6 +216,9 @@ export async function send(id: string, message: string) {
         upsert(id, { id: randomUUID(), kind: "error", text: detail });
       }
       if (store.get().workspaces.some((w) => w.id === id)) {
+        const ms = Date.now() - started;
+        const files = touched(await before, await snapshot(workspace));
+        upsert(id, { id: randomUUID(), kind: "turn", ms, files });
         await patch(id, { status: failed ? "input" : "ready" });
         const said = (transcripts.get(id) ?? []).flatMap((entry) => (entry.kind === "assistant" ? [entry.text] : [])).join("\n");
         pr.sync(id, pr.findUrl(said)).catch(() => undefined);

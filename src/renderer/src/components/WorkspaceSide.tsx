@@ -1,6 +1,7 @@
 import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, LoaderCircle, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { FileChange, Preview, Share, Workspace } from "@shared/types";
+import { FileTree } from "@/components/FileTree";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { Dot, ghost, outline, primary, Stat } from "@/components/ui";
 import { cn, totals } from "@/lib/utils";
@@ -39,6 +40,88 @@ function Section({ id, title, meta, grow, children }: { id: string; title: strin
         {meta && <span className="ml-auto flex items-center">{meta}</span>}
       </button>
       {open && <div className={cn("px-4 pb-4", grow && "min-h-0 flex-1 overflow-y-auto px-2 pb-2")}>{children}</div>}
+    </section>
+  );
+}
+
+type FilesTab = "changes" | "all";
+
+const filesTabs: { id: FilesTab; label: string }[] = [
+  { id: "changes", label: "Changes" },
+  { id: "all", label: "All files" },
+];
+
+const filesTabKey = "simpleton.section.files.tab";
+
+function readFilesTab(): FilesTab {
+  try {
+    return localStorage.getItem(filesTabKey) === "all" ? "all" : "changes";
+  } catch {
+    return "changes";
+  }
+}
+
+function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: Workspace; files: FileChange[] | null; tree: string[]; activeFile: string; onOpenFile: (path: string) => void }) {
+  const key = "simpleton.section.changes";
+  const [open, setOpen] = useState(() => stored(key, true));
+  const [tab, setTabState] = useState(readFilesTab);
+  const t = totals(files ?? []);
+
+  const show = (next: boolean) => {
+    setOpen(next);
+    store(key, next);
+  };
+
+  const pick = (next: FilesTab) => {
+    setTabState(next);
+    show(true);
+    try {
+      localStorage.setItem(filesTabKey, next);
+    } catch {
+      return;
+    }
+  };
+
+  return (
+    <section className={cn("border-b border-line", open && "flex min-h-0 flex-1 flex-col")}>
+      <div className="flex h-10 w-full shrink-0 items-center gap-1 px-3">
+        <button type="button" onClick={() => show(!open)} aria-expanded={open} aria-label={open ? "Collapse" : "Expand"} className="-ml-0.5 grid size-5 place-items-center rounded hover:bg-ink/[0.06]">
+          <ChevronRight className={cn("size-3.5 text-mute transition-transform", open && "rotate-90")} />
+        </button>
+        <div role="tablist" className="flex items-center gap-0.5">
+          {filesTabs.map(({ id, label }) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => pick(id)} className={cn("h-6 rounded-md px-2 text-[12.5px] font-semibold", tab === id ? "bg-ink/[0.06] text-ink" : "text-mute hover:text-ink")}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="ml-auto flex items-center">
+          {tab === "changes" && files && files.length > 0 && <Stat added={t.added} removed={t.removed} />}
+          {tab === "all" && tree.length > 0 && <span className="text-[12px] tabular-nums text-mute">{tree.length}</span>}
+        </span>
+      </div>
+      {open && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
+          {tab === "changes" && (
+            <>
+              {files && files.length > 0 && (
+                <ul>
+                  {files.map((f) => (
+                    <li key={f.path}>
+                      <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
+                        <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{f.path}</span>
+                        <Stat added={f.added} removed={f.removed} className="text-[11.5px]" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {files && files.length === 0 && <p className="px-2 text-[12.5px] text-mute">No changes yet</p>}
+            </>
+          )}
+          {tab === "all" && <FileTree id={workspace.id} files={tree} active={activeFile} onOpen={onOpenFile} />}
+        </div>
+      )}
     </section>
   );
 }
@@ -184,6 +267,7 @@ export function WorkspaceSide({
   preview,
   share,
   files,
+  tree,
   activeFile,
   terminalOpen,
   onOpenFile,
@@ -195,6 +279,7 @@ export function WorkspaceSide({
   preview?: Preview;
   share?: Share;
   files: FileChange[] | null;
+  tree: string[];
   activeFile: string;
   terminalOpen: boolean;
   onOpenFile: (path: string) => void;
@@ -209,8 +294,6 @@ export function WorkspaceSide({
     320,
     () => Math.min(720, window.innerWidth * 0.6),
   );
-  const t = totals(files ?? []);
-
   return (
     <aside className="relative flex h-full shrink-0 flex-col border-l border-line" style={{ width }}>
       <ResizeHandle edge="left" width={width} onResize={resize} onReset={reset} />
@@ -253,21 +336,7 @@ export function WorkspaceSide({
         <Links workspace={workspace} preview={preview} share={share} onRun={onRun} />
       </Section>
 
-      <Section id="changes" title="Changes" grow meta={files && files.length > 0 && <Stat added={t.added} removed={t.removed} />}>
-        {files && files.length > 0 && (
-          <ul>
-            {files.map((f) => (
-              <li key={f.path}>
-                <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{f.path}</span>
-                  <Stat added={f.added} removed={f.removed} className="text-[11.5px]" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {files && files.length === 0 && <p className="px-2 text-[12.5px] text-mute">No changes yet</p>}
-      </Section>
+      <Files workspace={workspace} files={files} tree={tree} activeFile={activeFile} onOpenFile={onOpenFile} />
     </aside>
   );
 }

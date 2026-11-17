@@ -1,4 +1,5 @@
-import type { Agent, FileChange, Status } from "@shared/types";
+import { CircleAlert, CircleCheck, CircleDashed, GitMerge, GitPullRequest, GitPullRequestClosed, LoaderCircle, type LucideIcon } from "lucide-react";
+import type { Agent, FileChange, Status, Workspace } from "@shared/types";
 
 export function cn(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -23,3 +24,31 @@ export const agents: Record<Agent, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
 };
+
+export function humanize(slug: string) {
+  const words = slug.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : slug;
+}
+
+export const displayName = (w: Workspace) => w.title || humanize(w.branch.split("/").pop() ?? w.branch);
+
+export const subtitle = (w: Workspace) => w.summary || w.task.trim().split("\n")[0];
+
+export function statusIcon(w: Workspace): { icon: LucideIcon; className: string; label: string } {
+  if (w.status === "setup") return { icon: LoaderCircle, className: "animate-spin text-mute", label: statuses.setup.label };
+  if (w.status === "working") return { icon: LoaderCircle, className: "animate-spin text-busy", label: statuses.working.label };
+  if (w.status === "input") return { icon: CircleAlert, className: "text-ask", label: statuses.input.label };
+  if (w.status === "merged" || w.prState === "merged") return { icon: GitMerge, className: "text-merged", label: "Merged" };
+  if (w.prUrl && w.prState === "closed") return { icon: GitPullRequestClosed, className: "text-minus", label: "Pull request closed" };
+  if (w.prUrl) return { icon: GitPullRequest, className: "text-ready", label: "Pull request open" };
+  if (w.status === "ready") return { icon: CircleCheck, className: "text-ready", label: statuses.ready.label };
+  return { icon: CircleDashed, className: "text-mute", label: statuses.idle.label };
+}
+
+export function duration(ms: number) {
+  const s = Math.max(1, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}

@@ -128,9 +128,10 @@ function parse(diff: string): FileView {
 }
 
 export async function listFiles(worktree: string) {
-  const { stdout } = await exec("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 });
-  const deleted = new Set((await git(worktree, ["ls-files", "-z", "--deleted"])).split("\0"));
-  return [...new Set(stdout.split("\0"))].filter((path) => path && !deleted.has(path));
+  const list = (args: string[]) => exec("git", ["ls-files", "-z", ...args], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 }).then(({ stdout }) => stdout.split("\0"));
+  const [visible, ignored, removed] = await Promise.all([list(["--cached", "--others", "--exclude-standard"]), list(["--others", "--ignored", "--exclude-standard", "--directory"]).catch(() => []), list(["--deleted"])]);
+  const deleted = new Set(removed);
+  return [...new Set([...visible, ...ignored.filter((path) => !path.endsWith("/"))])].filter((path) => path && !deleted.has(path)).sort();
 }
 
 export async function fileView(worktree: string, base: string, path: string): Promise<FileView> {
@@ -142,10 +143,14 @@ export async function fileView(worktree: string, base: string, path: string): Pr
   );
   const read = () => readFile(full).catch(() => null);
   if (!tracked) {
+    const ignored = await git(worktree, ["check-ignore", "-q", "--", path]).then(
+      () => true,
+      () => false,
+    );
     const content = await read();
     if (!content) return { binary: false, truncated: false, lines: [] };
     if (content.includes(0)) return { binary: true, truncated: false, lines: [] };
-    return plain(content.toString("utf8"), "add");
+    return plain(content.toString("utf8"), ignored ? "ctx" : "add");
   }
   const mergeBase = await git(worktree, ["merge-base", base, "HEAD"]).catch(() => base);
   const { stdout } = await exec("git", ["diff", "--no-color", "--no-ext-diff", "-U100000", mergeBase, "--", path], { cwd: worktree, maxBuffer: 64 * 1024 * 1024 });

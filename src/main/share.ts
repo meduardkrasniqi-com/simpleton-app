@@ -40,7 +40,7 @@ const tunnels = new Map<string, Tunnel>();
 const shareUrl = (name: string) => `https://${name}.${domain}`;
 
 function newName(branch: string) {
-  const words = branch.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const words = (branch.split("/").pop() ?? branch).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const meaningful = words.filter((word) => !VERBS.has(word));
   const base = (meaningful.length ? meaningful : words).slice(0, 2).join("-").slice(0, 20).replace(/-+$/, "") || "app";
   const suffix = [...randomBytes(4)].map((byte) => ALPHABET[byte % ALPHABET.length]).join("");

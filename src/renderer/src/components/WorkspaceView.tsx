@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Bot, CircleAlert, CornerDownRight, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, LoaderCircle, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { modes, type Entry, type FileChange, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
 import { FileSearch } from "@/components/FileSearch";
@@ -10,10 +10,10 @@ import { RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { WorkspaceSetup } from "@/components/WorkspaceSetup";
 import { WorkspaceSide } from "@/components/WorkspaceSide";
 import { Terminal as TerminalView } from "@/components/Terminal";
-import { Dot, ghost } from "@/components/ui";
+import { ghost, Stat, StatusIcon } from "@/components/ui";
 import { FileLinksContext, resolver } from "@/lib/fileLinks";
 import { useTranscript } from "@/lib/useTranscript";
-import { agents, cn, statuses } from "@/lib/utils";
+import { agents, cn, duration } from "@/lib/utils";
 
 const icons: Record<string, LucideIcon> = {
   Run: Terminal,
@@ -30,17 +30,48 @@ const icons: Record<string, LucideIcon> = {
 
 const fileVerbs = new Set(["Read", "Edit", "Write"]);
 
+const basename = (path: string) => path.split("/").pop() || path;
+
 const openable = (entry: Extract<Entry, { kind: "tool" }>) => fileVerbs.has(entry.verb) && !!entry.target && !entry.target.startsWith("/") && !entry.target.includes(", ") && !entry.target.endsWith("…");
 
 const isPending = (entry: Entry) => (entry.kind === "tool" ? entry.approval?.state === "pending" : (entry.kind === "question" || entry.kind === "plan") && entry.state === "pending");
 
 function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool" }>; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
+  const [open, setOpen] = useState(false);
   if (entry.approval?.state === "pending") return <ApprovalCard entry={entry} icon={icons[entry.verb] ?? Wrench} onReply={onReply} />;
   const running = entry.state === "running";
   const Icon = running ? LoaderCircle : (icons[entry.verb] ?? Wrench);
+  const icon = <Icon className={cn("size-3.5 shrink-0", running && "animate-spin", entry.state === "failed" ? "text-minus" : "text-mute")} />;
+  const denied = entry.approval?.state === "denied" && <span className="shrink-0 text-[12px] text-minus">Denied</span>;
+
+  if (entry.command) {
+    return (
+      <div>
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="group flex h-6 w-full min-w-0 items-center gap-2 text-left text-[12.5px]">
+          <span className="relative grid size-3.5 shrink-0 place-items-center">
+            <span className="grid place-items-center transition-opacity group-hover:opacity-0">{icon}</span>
+            <ChevronRight className={cn("absolute size-3.5 text-mute opacity-0 transition-[opacity,transform] group-hover:opacity-100", open && "rotate-90")} />
+          </span>
+          <span className="shrink-0 font-medium text-soft">{entry.verb}</span>
+          <span className="min-w-0 truncate font-mono text-[12px] text-mute group-hover:text-ink">{entry.target}</span>
+          {denied}
+        </button>
+        {open && (
+          <div className="mb-2 ml-[22px] mt-1 overflow-hidden rounded-lg border border-line bg-panel">
+            <pre className="selectable max-h-60 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-[12px] leading-[18px] text-ink">
+              <span className="select-none text-mute">$ </span>
+              {entry.command}
+            </pre>
+            {entry.output && <pre className={cn("selectable max-h-80 overflow-auto whitespace-pre-wrap break-words border-t border-line px-3 py-2 font-mono text-[12px] leading-[18px]", entry.state === "failed" ? "text-minus" : "text-soft")}>{entry.output}</pre>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-6 items-center gap-2 text-[12.5px]">
-      <Icon className={cn("size-3.5 shrink-0", running && "animate-spin", entry.state === "failed" ? "text-minus" : "text-mute")} />
+      {icon}
       <span className="shrink-0 font-medium text-soft">{entry.verb}</span>
       {entry.target &&
         (openable(entry) ? (
@@ -52,7 +83,40 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
             {entry.target}
           </span>
         ))}
-      {entry.approval?.state === "denied" && <span className="shrink-0 text-[12px] text-minus">Denied</span>}
+      {denied}
+    </div>
+  );
+}
+
+const shown = 2;
+
+function Turn({ entry, onOpen }: { entry: Extract<Entry, { kind: "turn" }>; onOpen: (path: string) => void }) {
+  const first = entry.files.slice(0, shown);
+  const rest = entry.files.slice(shown);
+  const added = entry.files.reduce((n, f) => n + f.added, 0);
+  const removed = entry.files.reduce((n, f) => n + f.removed, 0);
+  return (
+    <div className="flex h-6 min-w-0 items-center gap-3 text-[12px] text-mute">
+      <span className="flex shrink-0 items-center gap-1.5" title="Response time">
+        <Clock className="size-3.5" />
+        {duration(entry.ms)}
+      </span>
+      {entry.files.length > 0 && (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <FilePen className="size-3.5 shrink-0" />
+          {first.map((f) => (
+            <button key={f.path} type="button" onClick={() => onOpen(f.path)} title={f.path} className="min-w-0 truncate font-mono text-[12px] hover:text-ink">
+              {basename(f.path)}
+            </button>
+          ))}
+          {rest.length > 0 && (
+            <span className="shrink-0" title={rest.map((f) => f.path).join("\n")}>
+              +{rest.length}
+            </span>
+          )}
+          <Stat added={added} removed={removed} className="ml-1 text-[11.5px]" />
+        </span>
+      )}
     </div>
   );
 }
@@ -73,6 +137,8 @@ function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace
       return entry.state === "pending" ? <QuestionCard entry={entry} onReply={onReply} /> : <AnsweredQuestion entry={entry} />;
     case "plan":
       return <PlanCard entry={entry} modeLabel={modes[agent].find((m) => m.id === entry.mode)?.label} onReply={onReply} />;
+    case "turn":
+      return <Turn entry={entry} onOpen={onOpen} />;
     case "notice":
       return (
         <div className="flex gap-2 text-[12.5px] leading-[1.5] text-mute">
@@ -92,6 +158,7 @@ function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace
 
 function gap(previous: Entry | undefined, entry: Entry) {
   if (!previous) return "";
+  if (entry.kind === "turn") return "mt-2";
   if (previous.kind === "tool" && entry.kind === "tool" && !isPending(previous) && !isPending(entry)) return "mt-0.5";
   if (entry.kind === "user") return "mt-8";
   return "mt-4";
@@ -225,8 +292,6 @@ function writeSide(open: boolean) {
 type Tabs = { files: string[]; active: string };
 
 const tabState = new Map<string, Tabs>();
-
-const basename = (path: string) => path.split("/").pop() || path;
 
 function Tab({ active, title, onSelect, onClose, children }: { active: boolean; title?: string; onSelect: () => void; onClose?: () => void; children: ReactNode }) {
   return (
@@ -438,7 +503,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
         <header className="drag flex h-12 shrink-0 items-center gap-3 pl-3 pr-3 shadow-[inset_0_-1px_0_var(--color-line)]">
           <div role="tablist" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
             <Tab active={tabs.active === "chat"} onSelect={() => setTabs((t) => ({ ...t, active: "chat" }))}>
-              <Dot className={statuses[workspace.status].dot} />
+              <StatusIcon workspace={workspace} />
               Chat
             </Tab>
             {tabs.files.map((path) => (
@@ -541,6 +606,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
           preview={preview}
           share={share}
           files={files}
+          tree={tree}
           activeFile={tabs.active}
           terminalOpen={panel.open && panel.tab === "shell"}
           onOpenFile={openFile}

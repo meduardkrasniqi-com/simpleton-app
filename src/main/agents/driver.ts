@@ -46,3 +46,12 @@ export function shorten(value: string, max = 160) {
   const line = value.replace(/\s+/g, " ").trim();
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
+
+const maxOutput = 8000;
+
+export function output(value: unknown): string | undefined {
+  const raw = typeof value === "string" ? value : list(value).map(record).map((block) => text(block.text)).join("\n");
+  const clean = raw.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+  if (!clean.trim()) return undefined;
+  return clean.length > maxOutput ? `…${clean.slice(-maxOutput)}` : clean;
+}

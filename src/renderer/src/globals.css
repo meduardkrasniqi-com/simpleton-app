@@ -17,6 +17,7 @@
   --color-ask: #2563eb;
   --color-done: #a3a3a3;
   --color-idle: #d4d4d4;
+  --color-merged: #8250df;
   --color-plus: #15803d;
   --color-minus: #dc2626;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
@@ -73,6 +74,7 @@
     --color-ask: #60a5fa;
     --color-done: #737373;
     --color-idle: #525252;
+    --color-merged: #a371f7;
     --color-plus: #4ade80;
     --color-minus: #f87171;
   }

@@ -2,7 +2,7 @@ import { ChevronRight, FolderPlus } from "lucide-react";
 import type { AppState, Workspace } from "@shared/types";
 import { Composer } from "@/components/Composer";
 import { Dot, Mark, primary } from "@/components/ui";
-import { agents, cn, homeGroups, statuses } from "@/lib/utils";
+import { agents, cn, displayName, homeGroups, statuses, subtitle } from "@/lib/utils";
 
 export function Home({ state, onOpen }: { state: AppState; onOpen: (id: string) => void }) {
   if (!state.repos.length) {
@@ -46,11 +46,11 @@ export function Home({ state, onOpen }: { state: AppState; onOpen: (id: string) 
                       <button type="button" onClick={() => onOpen(w.id)} className="group flex w-full items-center gap-3 py-2 pl-3.5 pr-3 text-left hover:bg-panel">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13.5px] font-medium">
-                            {w.branch}
+                            {displayName(w)}
                             <span className="ml-2 font-normal text-mute">{repoName(w)}</span>
                           </p>
                           <p className="truncate text-[12.5px] text-mute">
-                            {agents[w.agent]} · {w.task}
+                            {agents[w.agent]} · {subtitle(w)}
                           </p>
                         </div>
                         <ChevronRight className="size-4 text-ink/25 group-hover:text-mute" />

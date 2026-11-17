@@ -1,9 +1,9 @@
-import { ChevronRight, FolderGit2, FolderPlus, House, LogOut, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
+import { AppWindow, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { AppState, Theme, User, Workspace } from "@shared/types";
+import type { AppState, Preview, Share, Theme, User, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
-import { Dot } from "@/components/ui";
-import { cn, statuses } from "@/lib/utils";
+import { StatusIcon } from "@/components/ui";
+import { cn, displayName, subtitle } from "@/lib/utils";
 
 const row = "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13.5px]";
 
@@ -90,6 +90,25 @@ function UserMenu({ user }: { user: User }) {
   );
 }
 
+function Indicators({ preview, share }: { preview?: Preview; share?: Share }) {
+  const server = preview && (preview.state === "starting" || preview.state === "running");
+  if (!server && !share) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-1 group-hover/ws:invisible">
+      {server && (
+        <span title={preview.state === "running" ? `Dev server on localhost:${preview.port}` : "Dev server starting"}>
+          <AppWindow className={cn("size-3.5", preview.state === "running" ? "text-ready" : "animate-pulse text-mute")} />
+        </span>
+      )}
+      {share && (
+        <span title={share.status === "live" ? `Shared at ${share.url.replace("https://", "")}` : share.status === "error" ? "Share link offline" : "Share link connecting"}>
+          <Link className={cn("size-3.5", share.status === "live" ? "text-ready" : share.status === "error" ? "text-minus" : "animate-pulse text-mute")} />
+        </span>
+      )}
+    </span>
+  );
+}
+
 const collapsedKey = "simpleton.collapsed";
 
 function readCollapsed() {
@@ -128,7 +147,7 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
   const { collapsed, toggle } = useCollapsed();
 
   const removeWorkspace = (w: Workspace) => {
-    if (confirm(`Delete ${w.branch}? The worktree and branch will be removed.`)) window.simpleton.removeWorkspace(w.id);
+    if (confirm(`Delete ${displayName(w)}? The worktree and branch ${w.branch} will be removed.`)) window.simpleton.removeWorkspace(w.id);
   };
 
   const removeRepo = (id: string, name: string) => {
@@ -168,11 +187,25 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
                     .filter((w) => w.repoId === repo.id)
                     .map((w) => (
                       <li key={w.id} className="group/ws relative">
-                        <Item active={active === w.id} onClick={() => onSelect(w.id)} className="group-hover/ws:pr-8">
-                          <Dot className={statuses[w.status].dot} />
-                          <span className={cn("min-w-0 flex-1 truncate", w.status === "merged" && "text-mute")}>{w.branch}</span>
-                        </Item>
-                        <button type="button" onClick={() => removeWorkspace(w)} aria-label={`Delete ${w.branch}`} className="absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-ink/[0.06] hover:text-minus group-hover/ws:grid">
+                        <button
+                          type="button"
+                          onClick={() => onSelect(w.id)}
+                          aria-current={active === w.id ? "page" : undefined}
+                          title={`${w.branch}\n${w.task}`}
+                          className={cn("flex w-full items-start gap-2.5 rounded-md px-2 py-[7px] text-left", active === w.id ? "bg-ink/[0.07]" : "hover:bg-ink/[0.04]")}
+                        >
+                          <span className="grid h-[18px] shrink-0 place-items-center">
+                            <StatusIcon workspace={w} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2 group-hover/ws:pr-6">
+                              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] leading-[18px]", active === w.id && "font-medium", (w.status === "merged" || w.prState === "merged") && "text-mute")}>{displayName(w)}</span>
+                              <Indicators preview={state.previews[w.id]} share={state.shares[w.id]} />
+                            </span>
+                            <span className="mt-px block truncate text-[12px] leading-4 text-mute">{subtitle(w)}</span>
+                          </span>
+                        </button>
+                        <button type="button" onClick={() => removeWorkspace(w)} aria-label={`Delete ${displayName(w)}`} className="absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-ink/[0.06] hover:text-minus group-hover/ws:grid">
                           <Trash2 className="size-3.5" />
                         </button>
                       </li>

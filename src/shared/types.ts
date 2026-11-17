@@ -16,6 +16,8 @@ export type Workspace = {
   id: string;
   repoId: string;
   task: string;
+  title?: string;
+  summary?: string;
   agent: Agent;
   branch: string;
   base: string;
@@ -118,11 +120,12 @@ export type Reply = { kind: "allow"; always?: boolean } | { kind: "deny"; messag
 export type Entry =
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "assistant"; text: string }
-  | { id: string; kind: "tool"; verb: string; target: string; state: ToolState; approval?: Approval }
+  | { id: string; kind: "tool"; verb: string; target: string; state: ToolState; approval?: Approval; command?: string; output?: string }
   | { id: string; kind: "question"; questions: Question[]; answers?: Record<string, string>; state: "pending" | "answered" | "declined" | "cancelled" }
   | { id: string; kind: "plan"; plan: string; mode?: string; state: "pending" | "approved" | "rejected" | "cancelled" }
   | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "notice"; text: string };
+  | { id: string; kind: "notice"; text: string }
+  | { id: string; kind: "turn"; ms: number; files: FileChange[] };
 
 export type EntryEvent = {
   workspaceId: string;

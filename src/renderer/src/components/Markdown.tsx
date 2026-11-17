@@ -1,7 +1,7 @@
-import { memo, useMemo, type ReactNode } from "react";
+import { createContext, memo, useContext, useMemo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { imagePath, mentionedImages, Shot } from "@/components/Shot";
+import { embeddedImages, Gallery, imagePath, mentionedImages, Shot } from "@/components/Shot";
 import { useFileLinks } from "@/lib/fileLinks";
 import { languageForFence, tokenStyle, useTokens } from "@/lib/highlight";
 
@@ -96,15 +96,19 @@ function Highlighted({ code, language }: { code: string; language: string | null
   );
 }
 
+const Grouped = createContext(false);
+
 function Image({ src, alt }: { src?: string; alt?: string }) {
   const links = useFileLinks();
+  const grouped = useContext(Grouped);
   const path = typeof src === "string" ? imagePath(src, links?.root) : null;
   if (!path) return alt ? <span className="text-mute">{alt}</span> : null;
+  if (grouped) return null;
   return <Shot path={path} alt={alt} className="my-1 mr-2" />;
 }
 
 const components: Components = {
-  p: ({ children }) => <p className="my-3 first:mt-0 last:mb-0">{children}</p>,
+  p: ({ children }) => <p className="my-3 first:mt-0 last:mb-0 empty:hidden">{children}</p>,
   img: ({ src, alt }) => <Image src={typeof src === "string" ? src : undefined} alt={alt} />,
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
   a: ({ href, children }) => <Anchor href={href}>{children}</Anchor>,
@@ -138,12 +142,17 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
   const links = useFileLinks();
   const plugins = useMemo(() => (links ? [remarkGfm, fileLinks(links.resolve)] : [remarkGfm]), [links]);
   const extra = useMemo(() => mentionedImages(text, links?.root), [text, links?.root]);
+  const pictures = useMemo(() => [...embeddedImages(text, links?.root), ...extra.map((path) => ({ path }))], [text, links?.root, extra]);
+  const grouped = pictures.length > 1;
   return (
     <div className="selectable text-[14px] leading-[1.6]">
-      <ReactMarkdown remarkPlugins={plugins} components={components}>
-        {text}
-      </ReactMarkdown>
-      {extra.length > 0 && (
+      <Grouped.Provider value={grouped}>
+        <ReactMarkdown remarkPlugins={plugins} components={components}>
+          {text}
+        </ReactMarkdown>
+      </Grouped.Provider>
+      {grouped && <Gallery items={pictures} />}
+      {!grouped && extra.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {extra.map((path) => (
             <Shot key={path} path={path} quiet />
