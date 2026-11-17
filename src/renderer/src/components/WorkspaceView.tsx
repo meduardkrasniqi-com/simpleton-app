@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Bot, Brain, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
 import { AttachButton, AttachmentList, splitAttachments, useAttachments, withAttachments } from "@/components/Attachments";
 import { FileIcon } from "@/components/FileIcon";
@@ -39,9 +39,65 @@ const openable = (entry: Extract<Entry, { kind: "tool" }>) => fileVerbs.has(entr
 
 const isPending = (entry: Entry) => (entry.kind === "tool" ? entry.approval?.state === "pending" : (entry.kind === "question" || entry.kind === "plan") && entry.state === "pending");
 
-function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool" }>; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
+type ToolEntry = Extract<Entry, { kind: "tool" }>;
+
+const parentOf = (entry: Entry) => (entry.kind === "tool" || entry.kind === "thinking" || entry.kind === "assistant" ? entry.parent : undefined);
+
+const Nested = createContext<{ children: Map<string, Entry[]>; render: (entry: Entry) => ReactNode }>({ children: new Map(), render: () => null });
+
+function Delegate({ entry }: { entry: ToolEntry }) {
+  const { children, render } = useContext(Nested);
+  const [open, setOpen] = useState(false);
+  const steps = (children.get(entry.id) ?? []).filter((e) => !isPending(e));
+  const running = entry.state === "running";
+  const count = steps.filter((e) => e.kind === "tool").length;
+  const latest = running ? steps.findLast((e): e is ToolEntry => e.kind === "tool") : undefined;
+  const name = !entry.agent || entry.agent === "general-purpose" ? "Agent" : entry.agent;
+  const expandable = steps.length > 0 || !!entry.output;
+  return (
+    <div>
+      <button type="button" onClick={() => expandable && setOpen(!open)} aria-expanded={open} className="group flex h-6 w-full min-w-0 items-center gap-2 text-left text-[12.5px]">
+        <span className="relative grid size-3.5 shrink-0 place-items-center">
+          <span className={cn("grid place-items-center transition-opacity", expandable && "group-hover:opacity-0")}>{running ? <Loader className="text-soft" /> : <Bot className={cn("size-3.5", entry.state === "failed" ? "text-minus" : "text-mute")} />}</span>
+          {expandable && <ChevronRight className={cn("absolute size-3.5 text-mute opacity-0 transition-[opacity,transform] group-hover:opacity-100", open && "rotate-90")} />}
+        </span>
+        <span className={cn("shrink-0 font-medium", running ? "shimmer" : "text-soft")}>{name}</span>
+        <span className={cn("min-w-0 truncate", running ? "shimmer" : "text-mute group-hover:text-ink")}>{entry.target}</span>
+        {count > 0 && (
+          <span className="shrink-0 text-[12px] text-mute">
+            {count} {count === 1 ? "step" : "steps"}
+          </span>
+        )}
+      </button>
+      {!open && latest && (
+        <div className="ml-[22px] flex h-5 min-w-0 items-center gap-1.5 text-[12px] text-mute">
+          <CornerDownRight className="size-3 shrink-0" />
+          <span className="shrink-0">{latest.label ?? latest.verb}</span>
+          <span className="min-w-0 truncate font-mono">{latest.target}</span>
+        </div>
+      )}
+      {open && (
+        <div className="mb-2 ml-[7px] mt-1 border-l border-line pl-[14px]">
+          {steps.map((step, i) => (
+            <div key={step.id} className={cn(gap(steps[i - 1], step), step.kind === "assistant" && "text-soft [&_*]:text-[13px]")}>
+              {render(step)}
+            </div>
+          ))}
+          {entry.output && (
+            <div className={cn("text-soft [&_*]:text-[13px]", steps.length > 0 && "mt-4")}>
+              <Markdown text={entry.output} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Tool({ entry, onOpen, onReply }: { entry: ToolEntry; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
   const [open, setOpen] = useState(false);
   if (entry.approval?.state === "pending") return <ApprovalCard entry={entry} icon={icons[entry.verb] ?? Wrench} onReply={onReply} />;
+  if (entry.agent) return <Delegate entry={entry} />;
   const running = entry.state === "running";
   const Icon = icons[entry.verb] ?? Wrench;
   const icon = running ? <Loader className="text-soft" /> : <Icon className={cn("size-3.5 shrink-0", entry.state === "failed" ? "text-minus" : "text-mute")} />;
@@ -596,12 +652,25 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
   openRef.current = openFile;
   const links = useMemo(() => ({ root: workspace.path, resolve: resolver(workspace.path, tree), open: (path: string) => openRef.current(path) }), [workspace.path, tree]);
 
-  const items = useMemo(() => group(entries ?? []), [entries]);
-  const last = entries?.[entries.length - 1];
+  const children = useMemo(() => {
+    const map = new Map<string, Entry[]>();
+    for (const entry of entries ?? []) {
+      const parent = parentOf(entry);
+      if (!parent) continue;
+      const list = map.get(parent);
+      if (list) list.push(entry);
+      else map.set(parent, [entry]);
+    }
+    return map;
+  }, [entries]);
+  const top = useMemo(() => (entries ?? []).filter((e) => !parentOf(e) || isPending(e)), [entries]);
+  const items = useMemo(() => group(top), [top]);
+  const last = top[top.length - 1];
   const pinnedEntry = pinned ? entries?.find((e) => e.id === pinned) : undefined;
   const pending = entries?.find(isPending);
   const thinking = workspace.status === "working" && !pending && !(last?.kind === "tool" && last.state === "running");
   const reply = (entryId: string) => (value: Reply) => window.simpleton.respond(workspace.id, entryId, value);
+  const nested = { children, render: (entry: Entry) => <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} /> };
 
   return (
     <div className="flex h-full">
@@ -652,28 +721,30 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                   </div>
                 </div>
               )}
-              <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
-                <div className="mx-auto max-w-[720px]">
-                  {workspace.status === "setup" && !entries?.length && (
-                    <>
-                      <Row entry={{ id: "task", kind: "user", text: workspace.task }} agent={workspace.agent} onOpen={openFile} onReply={() => undefined} />
-                      <WorkspaceSetup workspace={workspace} />
-                    </>
-                  )}
-                  {items.map((item, i) =>
-                    item.kind === "steps" ? (
-                      <div key={item.id} className={spacing(items[i - 1], item)}>
-                        <Steps item={item} render={(entry) => <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />} />
-                      </div>
-                    ) : (
-                      <div key={item.entry.id} data-user={item.entry.kind === "user" ? item.entry.id : undefined} className={spacing(items[i - 1], item)}>
-                        <Row entry={item.entry} agent={workspace.agent} grouped={item.grouped} onOpen={openFile} onReply={reply(item.entry.id)} />
-                      </div>
-                    ),
-                  )}
-                  {thinking && <Activity id={`${workspace.id}:${entries?.filter((e) => e.kind === "user").length ?? 0}`} className={entries?.length ? "mt-4" : ""} />}
+              <Nested.Provider value={nested}>
+                <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
+                  <div className="mx-auto max-w-[720px]">
+                    {workspace.status === "setup" && !entries?.length && (
+                      <>
+                        <Row entry={{ id: "task", kind: "user", text: workspace.task }} agent={workspace.agent} onOpen={openFile} onReply={() => undefined} />
+                        <WorkspaceSetup workspace={workspace} />
+                      </>
+                    )}
+                    {items.map((item, i) =>
+                      item.kind === "steps" ? (
+                        <div key={item.id} className={spacing(items[i - 1], item)}>
+                          <Steps item={item} render={(entry) => <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />} />
+                        </div>
+                      ) : (
+                        <div key={item.entry.id} data-user={item.entry.kind === "user" ? item.entry.id : undefined} className={spacing(items[i - 1], item)}>
+                          <Row entry={item.entry} agent={workspace.agent} grouped={item.grouped} onOpen={openFile} onReply={reply(item.entry.id)} />
+                        </div>
+                      ),
+                    )}
+                    {thinking && <Activity id={`${workspace.id}:${entries?.filter((e) => e.kind === "user").length ?? 0}`} className={entries?.length ? "mt-4" : ""} />}
+                  </div>
                 </div>
-              </div>
+              </Nested.Provider>
               <div className="relative shrink-0 px-8 pb-5">
                 {!atBottom && (
                   <button type="button" onClick={toBottom} aria-label="Jump to latest" className="absolute bottom-full left-1/2 mb-3 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-ink/[0.1] bg-raised text-soft shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:text-ink">

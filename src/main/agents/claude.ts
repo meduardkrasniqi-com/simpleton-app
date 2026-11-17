@@ -7,6 +7,8 @@ type Tool = Extract<Entry, { kind: "tool" }>;
 
 const hidden = new Set(["AskUserQuestion", "ExitPlanMode", "ToolSearch"]);
 
+const delegating = new Set(["Task", "Agent"]);
+
 const maxLines = 40;
 
 function lines(value: string, kind: DiffLine["kind"]): DiffLine[] {
@@ -191,7 +193,29 @@ export const claude: Driver = {
 
   parser: (cwd, runId) => {
     const tools = new Map<string, Tool>();
+    const background = new Set<string>();
+    const spoke = new Set<string>();
     let seq = 0;
+
+    const put = (tool: Tool): Update => {
+      tools.set(tool.id, tool);
+      return { entry: tool };
+    };
+
+    const task = (event: Json): Update[] => {
+      const tool = tools.get(text(event.tool_use_id));
+      if (!tool || !tool.agent) return [];
+      if (event.subtype === "task_started" && event.is_backgrounded === true) {
+        background.add(tool.id);
+        return [put({ ...tool, state: "running", background: true, output: undefined })];
+      }
+      if (event.subtype === "task_notification" && background.has(tool.id)) {
+        background.delete(tool.id);
+        const said = spoke.has(tool.id) ? undefined : output(text(record(event.result).text) || text(event.summary));
+        return [put({ ...tool, state: text(event.status) === "failed" ? "failed" : "done", ...(said ? { output: said } : {}) })];
+      }
+      return [];
+    };
 
     const request = (event: Json): Update[] => {
       const requestId = text(event.request_id);
@@ -220,9 +244,12 @@ export const claude: Driver = {
       if (event.type === "control_request") return request(event);
       if (event.type === "control_cancel_request") return [{ cancel: text(event.request_id) || text(record(event.request).request_id) }];
 
-      if (event.parent_tool_use_id) return updates;
+      const parent = text(event.parent_tool_use_id) || undefined;
+      const nested = parent ? { parent } : {};
 
-      if (event.type === "system" && event.subtype === "init" && text(event.session_id)) {
+      if (event.type === "system" && (event.subtype === "task_started" || event.subtype === "task_notification")) return task(event);
+
+      if (!parent && event.type === "system" && event.subtype === "init" && text(event.session_id)) {
         updates.push({ session: text(event.session_id) });
         if (text(event.model)) updates.push({ model: text(event.model) });
       }
@@ -230,17 +257,18 @@ export const claude: Driver = {
       if (event.type === "assistant") {
         for (const block of list(record(event.message).content).map(record)) {
           if (block.type === "thinking" && text(block.thinking).trim()) {
-            updates.push({ entry: { id: `${runId}:${seq++}`, kind: "thinking", text: text(block.thinking).trim() } });
+            updates.push({ entry: { id: `${runId}:${seq++}`, kind: "thinking", text: text(block.thinking).trim(), ...nested } });
           }
           if (block.type === "text" && text(block.text).trim()) {
-            updates.push({ entry: { id: `${runId}:${seq++}`, kind: "assistant", text: text(block.text).trim() } });
+            if (parent) spoke.add(parent);
+            updates.push({ entry: { id: `${runId}:${seq++}`, kind: "assistant", text: text(block.text).trim(), ...nested } });
           }
           if (block.type === "tool_use" && !hidden.has(text(block.name))) {
+            const name = text(block.name);
             const input = record(block.input);
-            const full = text(block.name) === "Bash" ? text(input.command).trim() : "";
-            const tool: Tool = { id: text(block.id) || `${runId}:${seq++}`, kind: "tool", ...describe(text(block.name), input, cwd), state: "running", ...(full ? { command: full } : {}) };
-            tools.set(tool.id, tool);
-            updates.push({ entry: tool });
+            const full = name === "Bash" ? text(input.command).trim() : "";
+            const agent = delegating.has(name) ? text(input.subagent_type) || "general-purpose" : "";
+            updates.push(put({ id: text(block.id) || `${runId}:${seq++}`, kind: "tool", ...describe(name, input, cwd), state: "running", ...(full ? { command: full } : {}), ...(agent ? { agent } : {}), ...nested }));
           }
         }
       }
@@ -250,13 +278,13 @@ export const claude: Driver = {
           if (block.type === "tool_result" && text(block.tool_use_id)) updates.push({ settled: text(block.tool_use_id) });
           const tool = block.type === "tool_result" ? tools.get(text(block.tool_use_id)) : undefined;
           if (!tool) continue;
-          const done: Tool = { ...tool, state: block.is_error ? "failed" : "done", ...(tool.command ? { output: output(block.content) } : {}) };
-          tools.set(done.id, done);
-          updates.push({ entry: done });
+          if (background.has(tool.id) && !block.is_error) continue;
+          const said = tool.command || (tool.agent && !spoke.has(tool.id)) ? output(block.content) : undefined;
+          updates.push(put({ ...tool, state: block.is_error ? "failed" : "done", ...(said ? { output: said } : {}) }));
         }
       }
 
-      if (event.type === "result") {
+      if (!parent && event.type === "result") {
         if (event.subtype === "success" && !event.is_error) {
           updates.push({ done: true });
         } else {
