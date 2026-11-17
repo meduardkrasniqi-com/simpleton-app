@@ -27,7 +27,7 @@ export function Home({ state, onOpen }: { state: AppState; onOpen: (id: string) 
       <div className="mx-auto max-w-[640px]">
         <p className="text-[22px] font-semibold tracking-[-0.02em]">What should we work on?</p>
         <div className="mt-4">
-          <Composer repos={state.repos} onCreated={(w) => onOpen(w.id)} />
+          <Composer state={state} onCreated={(w) => onOpen(w.id)} />
         </div>
         <div className="mt-8 space-y-5">
           {homeGroups.map((status) => {

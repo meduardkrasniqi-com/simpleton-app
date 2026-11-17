@@ -10,6 +10,14 @@ export function setMenu() {
       { role: "about" },
       { label: "Check for Updates…", click: () => updates.checkNow() },
       { type: "separator" },
+      {
+        label: "Settings…",
+        accelerator: "CmdOrCtrl+,",
+        click: (_item, window) => {
+          if (window instanceof BrowserWindow) window.webContents.send(channels.openSettings);
+        },
+      },
+      { type: "separator" },
       { role: "services" },
       { type: "separator" },
       { role: "hide" },

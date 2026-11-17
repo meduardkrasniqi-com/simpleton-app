@@ -180,6 +180,8 @@ export type AppState = {
   previews: Record<string, Preview>;
   shares: Record<string, Share>;
   theme: Theme;
+  agent: Agent;
+  defaults: Record<Agent, AgentSettings>;
 };
 
 export type User = {
@@ -237,6 +239,8 @@ export type Api = {
   pathForFile: (file: File) => string;
   commands: (agent: Agent, repoId: string) => Promise<Command[]>;
   setTheme: (theme: Theme) => Promise<void>;
+  setDefaultAgent: (agent: Agent) => Promise<void>;
+  setAgentDefaults: (agent: Agent, settings: AgentSettings) => Promise<void>;
   models: () => Promise<ModelCatalog>;
   configure: (id: string, settings: AgentSettings) => Promise<void>;
   transcript: (id: string) => Promise<Entry[]>;
@@ -255,6 +259,7 @@ export type Api = {
   share: (id: string) => Promise<void>;
   unshare: (id: string) => Promise<void>;
   onCloseTab: (listener: () => void) => () => void;
+  onOpenSettings: (listener: () => void) => () => void;
   auth: () => Promise<Auth>;
   onAuth: (listener: (auth: Auth) => void) => () => void;
   login: () => Promise<void>;
@@ -285,6 +290,8 @@ export const channels = {
   pickAttachments: "attachment:pick",
   commands: "agent:commands",
   setTheme: "app:theme",
+  setDefaultAgent: "settings:agent",
+  setAgentDefaults: "settings:agent-defaults",
   models: "agent:models",
   configure: "agent:configure",
   transcript: "agent:transcript",
@@ -303,6 +310,7 @@ export const channels = {
   share: "share:start",
   unshare: "share:stop",
   closeTab: "window:close-tab",
+  openSettings: "window:open-settings",
   auth: "auth:get",
   authChanged: "auth:changed",
   login: "auth:login",

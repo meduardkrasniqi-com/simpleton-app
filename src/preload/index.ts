@@ -29,6 +29,8 @@ const api: Api = {
   pathForFile: (file) => webUtils.getPathForFile(file),
   commands: (agent, repoId) => ipcRenderer.invoke(channels.commands, agent, repoId),
   setTheme: (theme) => ipcRenderer.invoke(channels.setTheme, theme),
+  setDefaultAgent: (agent) => ipcRenderer.invoke(channels.setDefaultAgent, agent),
+  setAgentDefaults: (agent, settings) => ipcRenderer.invoke(channels.setAgentDefaults, agent, settings),
   models: () => ipcRenderer.invoke(channels.models),
   configure: (id, settings) => ipcRenderer.invoke(channels.configure, id, settings),
   transcript: (id) => ipcRenderer.invoke(channels.transcript, id),
@@ -58,6 +60,11 @@ const api: Api = {
     const handler = () => listener();
     ipcRenderer.on(channels.closeTab, handler);
     return () => ipcRenderer.removeListener(channels.closeTab, handler);
+  },
+  onOpenSettings: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on(channels.openSettings, handler);
+    return () => ipcRenderer.removeListener(channels.openSettings, handler);
   },
   auth: () => ipcRenderer.invoke(channels.auth),
   onAuth: (listener) => {

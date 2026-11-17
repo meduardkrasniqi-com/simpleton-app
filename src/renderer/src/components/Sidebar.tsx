@@ -1,6 +1,6 @@
-import { AppWindow, Archive, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
+import { AppWindow, Archive, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Plus, Settings, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { AppState, Preview, Share, Theme, User, Workspace } from "@shared/types";
+import type { AppState, Preview, Share, User, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { StatusIcon } from "@/components/ui";
 import { cn, displayName, subtitle } from "@/lib/utils";
@@ -14,33 +14,6 @@ function Item({ children, active, onClick, className }: { children: ReactNode; a
     <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn(row, active ? "bg-ink/[0.07] font-medium" : "hover:bg-ink/[0.04]", className)}>
       {children}
     </button>
-  );
-}
-
-const themes = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-] as const;
-
-function ThemePicker({ value }: { value: Theme }) {
-  return (
-    <div role="radiogroup" aria-label="Theme" className="flex shrink-0 items-center rounded-md bg-ink/[0.05] p-0.5">
-      {themes.map(({ value: option, label, icon: Icon }) => (
-        <button
-          key={option}
-          type="button"
-          role="radio"
-          aria-checked={value === option}
-          aria-label={label}
-          title={label}
-          onClick={() => window.simpleton.setTheme(option)}
-          className={cn("grid size-6 place-items-center rounded-[5px] transition-colors", value === option ? "bg-raised text-ink shadow-[0_1px_2px_rgba(0,0,0,0.12)]" : "text-mute hover:text-ink")}
-        >
-          <Icon className="size-3.5" />
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -73,7 +46,7 @@ function UserMenu({ user }: { user: User }) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative mt-1">
+    <div ref={ref} className="relative mt-px">
       {open && (
         <div role="menu" className="absolute inset-x-0 bottom-full mb-1 rounded-lg border border-line bg-raised p-1 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
           <button type="button" role="menuitem" onClick={() => window.simpleton.logout()} className={cn(row, "hover:bg-ink/[0.05]")}>
@@ -165,7 +138,13 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
           <House className="size-4 text-mute" />
           Home
         </Item>
-        <div className="mt-4 space-y-4">
+        <Item onClick={() => window.simpleton.addRepo()} className="mt-px">
+          <FolderPlus className="size-4 shrink-0 text-mute" />
+          <span className="truncate">Add repository</span>
+        </Item>
+        <div className="mx-2 my-3 h-px bg-ink/[0.06]" />
+        <p className="px-2 pb-1 text-[12px] font-medium text-mute">Workspaces</p>
+        <div className="space-y-3">
           {state.repos.map((repo) => (
             <div key={repo.id} className="group/repo">
               <div className="group/head flex h-7 items-center gap-0.5 text-[12.5px] font-semibold text-mute">
@@ -217,13 +196,11 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
             </div>
           ))}
         </div>
-        <div className="mt-auto flex items-center gap-2 pt-4">
-          <Item onClick={() => window.simpleton.addRepo()} className="min-w-0 flex-1">
-            <FolderPlus className="size-4 shrink-0 text-mute" />
-            <span className="truncate">Add repository</span>
-          </Item>
-          <ThemePicker value={state.theme} />
-        </div>
+        <div className="mt-auto pt-4" />
+        <Item onClick={() => onSelect("settings")} active={active === "settings"}>
+          <Settings className="size-4 shrink-0 text-mute" />
+          Settings
+        </Item>
         <UserMenu user={user} />
       </nav>
     </aside>

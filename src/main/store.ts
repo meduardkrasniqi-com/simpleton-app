@@ -7,7 +7,7 @@ type Listener = (state: AppState) => void;
 
 const file = () => join(app.getPath("userData"), "state.json");
 
-const empty = (): AppState => ({ repos: [], workspaces: [], previews: {}, shares: {}, theme: "system" });
+const empty = (): AppState => ({ repos: [], workspaces: [], previews: {}, shares: {}, theme: "system", agent: "claude-code", defaults: { "claude-code": {}, codex: {} } });
 
 let state: AppState = empty();
 const listeners = new Set<Listener>();
@@ -17,7 +17,8 @@ export async function load() {
     const parsed = JSON.parse(await readFile(file(), "utf8")) as Partial<AppState>;
     const shares: Record<string, Share> = {};
     for (const [id, share] of Object.entries(parsed.shares ?? {})) shares[id] = { name: share.name, url: share.url, status: "connecting" };
-    state = { repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], previews: {}, shares, theme: parsed.theme ?? "system" };
+    const base = empty();
+    state = { ...base, repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], shares, theme: parsed.theme ?? base.theme, agent: parsed.agent ?? base.agent, defaults: { ...base.defaults, ...parsed.defaults } };
   } catch {
     state = empty();
   }

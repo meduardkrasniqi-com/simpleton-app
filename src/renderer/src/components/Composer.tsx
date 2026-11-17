@@ -1,26 +1,22 @@
 import { ArrowUp, Bot, FolderGit2 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { Agent, AgentSettings, Repo, Workspace } from "@shared/types";
+import type { Agent, AgentSettings, AppState, Workspace } from "@shared/types";
 import { AttachButton, useAttachments, withAttachments } from "@/components/Attachments";
 import { PromptBox } from "@/components/PromptBox";
-import { lastMode, rememberMode, RunSettings, useAgentChoices } from "@/components/RunSettings";
+import { RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { useModels } from "@/lib/useModels";
 import { agents, cn } from "@/lib/utils";
 
-export function Composer({ repos, repoId, tall, onCreated }: { repos: Repo[]; repoId?: string; tall?: boolean; onCreated: (workspace: Workspace) => void }) {
+export function Composer({ state, repoId, tall, onCreated }: { state: AppState; repoId?: string; tall?: boolean; onCreated: (workspace: Workspace) => void }) {
+  const { repos } = state;
   const [task, setTask] = useState("");
   const [repo, setRepo] = useState(repoId ?? repos[0]?.id ?? "");
-  const [agent, setAgentState] = useState<Agent>("claude-code");
-  const [settings, setSettingsState] = useState<AgentSettings>(() => ({ mode: lastMode("claude-code") }));
+  const [agent, setAgentState] = useState<Agent>(state.agent);
+  const [settings, setSettings] = useState<AgentSettings>(() => state.defaults[state.agent]);
 
   const setAgent = (next: Agent) => {
     setAgentState(next);
-    setSettingsState({ mode: lastMode(next) });
-  };
-
-  const setSettings = (next: AgentSettings) => {
-    if (next.mode && next.mode !== settings.mode) rememberMode(agent, next.mode);
-    setSettingsState(next);
+    setSettings(state.defaults[next]);
   };
   const catalog = useModels();
   const agentLabel = (a: Agent) => (catalog?.versions[a] ? `${agents[a]} ${catalog.versions[a]}` : agents[a]);

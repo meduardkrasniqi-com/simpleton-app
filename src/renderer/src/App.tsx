@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Home } from "@/components/Home";
 import { Login } from "@/components/Login";
 import { NewTask } from "@/components/NewTask";
+import { Settings } from "@/components/Settings";
 import { Sidebar } from "@/components/Sidebar";
 import { WorkspaceView } from "@/components/WorkspaceView";
 import { useAppState } from "@/lib/useAppState";
@@ -14,18 +15,23 @@ export function App() {
   const [creating, setCreating] = useState<string | null>(null);
   const closeNewTask = useCallback(() => setCreating(null), []);
 
+  useEffect(() => window.simpleton.onOpenSettings(() => setActive("settings")), []);
+
   if (!state || !auth) return null;
   if (auth.status === "loading") return <div className="drag h-full bg-surface" />;
   if (auth.status !== "signed-in" || !auth.user) return <Login auth={auth} />;
 
   const workspace = state.workspaces.find((w) => w.id === active);
+  const page = workspace ? active : active === "settings" ? "settings" : "home";
 
   return (
     <div className="flex h-full">
-      <Sidebar state={state} user={auth.user} active={workspace ? active : "home"} onSelect={setActive} onNewTask={setCreating} />
+      <Sidebar state={state} user={auth.user} active={page} onSelect={setActive} onNewTask={setCreating} />
       <main className="min-w-0 flex-1 bg-surface">
         {workspace ? (
           <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} share={state.shares[workspace.id]} />
+        ) : page === "settings" ? (
+          <Settings state={state} />
         ) : (
           <div className="flex h-full flex-col">
             <div className="drag h-12 shrink-0" />
@@ -37,7 +43,7 @@ export function App() {
       </main>
       {creating && (
         <NewTask
-          repos={state.repos}
+          state={state}
           repoId={creating}
           onClose={closeNewTask}
           onCreated={(w) => {

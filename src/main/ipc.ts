@@ -12,6 +12,8 @@ import * as store from "./store";
 import * as terminals from "./terminals";
 import * as workspaces from "./workspaces";
 
+const isAgent = (agent: unknown): agent is Agent => agent === "claude-code" || agent === "codex";
+
 export function registerIpc() {
   ipcMain.handle(channels.state, () => store.get());
   ipcMain.handle(channels.auth, () => auth.get());
@@ -58,6 +60,15 @@ export function registerIpc() {
     if (!["system", "light", "dark"].includes(theme)) return;
     nativeTheme.themeSource = theme;
     await store.update((state) => ({ ...state, theme }));
+  });
+  ipcMain.handle(channels.setDefaultAgent, async (_event, agent: Agent) => {
+    if (!isAgent(agent)) return;
+    await store.update((state) => ({ ...state, agent }));
+  });
+  ipcMain.handle(channels.setAgentDefaults, async (_event, agent: Agent, settings: AgentSettings) => {
+    if (!isAgent(agent)) return;
+    const clean: AgentSettings = { model: settings.model || undefined, effort: settings.effort || undefined, mode: settings.mode || undefined };
+    await store.update((state) => ({ ...state, defaults: { ...state.defaults, [agent]: clean } }));
   });
   ipcMain.handle(channels.models, () => models.catalog());
   ipcMain.handle(channels.configure, (_event, id: string, settings: AgentSettings) => agents.configure(id, settings));

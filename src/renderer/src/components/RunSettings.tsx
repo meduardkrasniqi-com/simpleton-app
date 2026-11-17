@@ -22,25 +22,6 @@ const effortLabels: Record<string, string> = {
   ultra: "Ultra",
 };
 
-const modeKey = (agent: Agent) => `simpleton.mode.${agent}`;
-
-export function lastMode(agent: Agent) {
-  try {
-    const saved = localStorage.getItem(modeKey(agent));
-    return saved && modes[agent].some((m) => m.id === saved) ? saved : defaultModes[agent];
-  } catch {
-    return defaultModes[agent];
-  }
-}
-
-export function rememberMode(agent: Agent, mode: string) {
-  try {
-    localStorage.setItem(modeKey(agent), mode);
-  } catch {
-    return;
-  }
-}
-
 export function useAgentChoices(agent: Agent, value: AgentSettings, onChange: (value: AgentSettings) => void): Choice[] {
   const catalog = useModels();
   const choices: Choice[] = [];
