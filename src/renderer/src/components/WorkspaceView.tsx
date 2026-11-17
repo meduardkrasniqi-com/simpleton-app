@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Bot, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { modes, type Entry, type FileChange, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
+import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
 import { FileIcon } from "@/components/FileIcon";
 import { FileSearch } from "@/components/FileSearch";
 import { FileViewer } from "@/components/FileViewer";
@@ -325,6 +325,7 @@ function Tab({ active, title, onSelect, onClose, children }: { active: boolean; 
 
 export function WorkspaceView({ workspace, preview, share }: { workspace: Workspace; preview?: Preview; share?: Share }) {
   const [files, setFiles] = useState<FileChange[] | null>(null);
+  const [unpushed, setUnpushed] = useState<Pending | null>(null);
   const [side, setSideState] = useState(readSide);
   const setSide = (open: boolean) => {
     setSideState(open);
@@ -418,10 +419,15 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
       .changes(workspace.id)
       .then(setFiles)
       .catch(() => setFiles([]));
+    window.simpleton
+      .pending(workspace.id)
+      .then(setUnpushed)
+      .catch(() => setUnpushed(null));
   }, [workspace.id]);
 
   useEffect(() => {
     setFiles(null);
+    setUnpushed(null);
     refresh();
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
@@ -432,7 +438,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
   useEffect(() => {
     const timer = setTimeout(refresh, 300);
     return () => clearTimeout(timer);
-  }, [settled, workspace.status, refresh]);
+  }, [settled, workspace.status, workspace.prUrl, workspace.prState, refresh]);
 
   const measure = useCallback(() => {
     const el = scroller.current;
@@ -609,6 +615,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
           preview={preview}
           share={share}
           files={files}
+          pending={unpushed}
           tree={tree}
           activeFile={tabs.active}
           terminalOpen={panel.open && panel.tab === "shell"}

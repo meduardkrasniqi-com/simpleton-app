@@ -39,7 +39,7 @@ async function run(id: string, hint?: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace) return;
   const found = await lookup(workspace);
-  const url = found?.url ?? workspace.prUrl ?? (found === undefined ? hint : undefined);
+  const url = found?.url ?? workspace.prUrl ?? hint;
   const prState = found?.state ?? workspace.prState ?? (url ? "open" : undefined);
   const current = store.get().workspaces.find((w) => w.id === id);
   if (!current) return;

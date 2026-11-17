@@ -14,6 +14,7 @@ const api: Api = {
   removeWorkspace: (id) => ipcRenderer.invoke(channels.removeWorkspace, id),
   retrySetup: (id) => ipcRenderer.invoke(channels.retrySetup, id),
   changes: (id) => ipcRenderer.invoke(channels.changes, id),
+  pending: (id) => ipcRenderer.invoke(channels.pending, id),
   file: (id, path) => ipcRenderer.invoke(channels.file, id, path),
   files: (id) => ipcRenderer.invoke(channels.files, id),
   readText: (id, path) => ipcRenderer.invoke(channels.readText, id, path),

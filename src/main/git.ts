@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import type { DiffLine, FileChange, FileView } from "@shared/types";
+import type { DiffLine, FileChange, FileView, Pending } from "@shared/types";
 
 const exec = promisify(execFile);
 
@@ -79,6 +79,16 @@ async function lineCount(file: string) {
   } catch {
     return 0;
   }
+}
+
+export async function pending(worktree: string, branch: string, base: string): Promise<Pending> {
+  const [status, upstream] = await Promise.all([
+    git(worktree, ["status", "--porcelain"]).catch(() => ""),
+    git(worktree, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]).catch(() => ""),
+  ]);
+  const remote = upstream || ((await refExists(worktree, `origin/${branch}`)) ? `origin/${branch}` : base);
+  const ahead = Number(await git(worktree, ["rev-list", "--count", `${remote}..HEAD`]).catch(() => "0")) || 0;
+  return { dirty: status.length > 0, ahead };
 }
 
 export async function changes(worktree: string, base: string): Promise<FileChange[]> {

@@ -134,6 +134,8 @@ export type EntryEvent = {
 
 export type ChangeStatus = "added" | "modified" | "deleted" | "untracked";
 
+export type Pending = { dirty: boolean; ahead: number };
+
 export type FileChange = {
   path: string;
   added: number;
@@ -220,6 +222,7 @@ export type Api = {
   removeWorkspace: (id: string) => Promise<void>;
   retrySetup: (id: string) => Promise<void>;
   changes: (id: string) => Promise<FileChange[]>;
+  pending: (id: string) => Promise<Pending>;
   file: (id: string, path: string) => Promise<FileView>;
   files: (id: string) => Promise<string[]>;
   readText: (id: string, path: string) => Promise<string>;
@@ -265,6 +268,7 @@ export const channels = {
   removeWorkspace: "workspace:remove",
   retrySetup: "workspace:retry-setup",
   changes: "workspace:changes",
+  pending: "workspace:pending",
   file: "workspace:file",
   files: "workspace:files",
   readText: "workspace:read-text",

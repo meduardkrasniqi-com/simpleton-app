@@ -188,6 +188,12 @@ export async function changes(id: string) {
   return git.changes(workspace.path, workspace.base);
 }
 
+export async function pending(id: string) {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  if (!workspace || workspace.status === "setup") return { dirty: false, ahead: 0 };
+  return git.pending(workspace.path, workspace.branch, workspace.base);
+}
+
 const maxEditable = 2 * 1024 * 1024;
 
 function inside(id: string, path: string) {

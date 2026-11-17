@@ -1,6 +1,6 @@
-import { ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
+import { Archive, ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import type { FileChange, Preview, Share, Workspace } from "@shared/types";
+import type { FileChange, Pending, Preview, Share, Workspace } from "@shared/types";
 import { ChangeLetter, changeTone, FileIcon } from "@/components/FileIcon";
 import { FileTree } from "@/components/FileTree";
 import { Loader } from "@/components/Loader";
@@ -134,16 +134,39 @@ function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: 
   );
 }
 
-function PrButton({ workspace }: { workspace: Workspace }) {
-  if (workspace.prState === "merged") return null;
+function PrButton({ workspace, pending }: { workspace: Workspace; pending: Pending | null }) {
+  const busy = workspace.status === "working" || workspace.status === "setup";
+
+  if (workspace.prState === "merged" || workspace.status === "merged") {
+    const archive = () => {
+      if (confirm(`Archive ${workspace.branch}? The worktree and branch will be removed.`)) window.simpleton.removeWorkspace(workspace.id);
+    };
+    return (
+      <button type="button" onClick={archive} disabled={busy} className={cn(outline, size)}>
+        <Archive className="size-3.5" />
+        Archive
+      </button>
+    );
+  }
+
   const open = !!workspace.prUrl && workspace.prState !== "closed";
+
+  if (open && pending && !pending.dirty && pending.ahead === 0) {
+    return (
+      <button type="button" onClick={() => window.open(workspace.prUrl)} className={cn(primary, size)}>
+        <GitPullRequest className="size-3.5" />
+        View PR
+      </button>
+    );
+  }
+
   const message = open
     ? "Commit any uncommitted changes and push them to the open pull request for this branch."
     : `Commit the changes, push this branch and open a pull request against ${workspace.base.replace(/^origin\//, "")} with gh. Write a clear title and description, then reply with the pull request link.`;
   const Icon = open ? ArrowUpFromLine : GitPullRequest;
 
   return (
-    <button type="button" onClick={() => window.simpleton.send(workspace.id, message)} disabled={workspace.status === "working" || workspace.status === "setup"} className={cn(primary, size)}>
+    <button type="button" onClick={() => window.simpleton.send(workspace.id, message)} disabled={busy} className={cn(primary, size)}>
       <Icon className="size-3.5" />
       {open ? "Push changes" : "Create PR"}
     </button>
@@ -275,6 +298,7 @@ export function WorkspaceSide({
   preview,
   share,
   files,
+  pending,
   tree,
   activeFile,
   terminalOpen,
@@ -287,6 +311,7 @@ export function WorkspaceSide({
   preview?: Preview;
   share?: Share;
   files: FileChange[] | null;
+  pending: Pending | null;
   tree: string[];
   activeFile: string;
   terminalOpen: boolean;
@@ -325,7 +350,7 @@ export function WorkspaceSide({
               Run
             </button>
           )}
-          <PrButton workspace={workspace} />
+          <PrButton workspace={workspace} pending={pending} />
         </div>
       </div>
 

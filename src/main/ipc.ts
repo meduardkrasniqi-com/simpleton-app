@@ -36,6 +36,7 @@ export function registerIpc() {
   ipcMain.handle(channels.removeWorkspace, (_event, id: string) => workspaces.removeWorkspace(id));
   ipcMain.handle(channels.retrySetup, (_event, id: string) => workspaces.retrySetup(id));
   ipcMain.handle(channels.changes, (_event, id: string) => workspaces.changes(id));
+  ipcMain.handle(channels.pending, (_event, id: string) => workspaces.pending(id));
 
   ipcMain.handle(channels.file, (_event, id: string, path: string) => workspaces.file(id, path));
   ipcMain.handle(channels.files, (_event, id: string) => workspaces.files(id));
