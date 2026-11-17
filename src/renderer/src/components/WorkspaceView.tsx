@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Bot, Brain, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
+import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type RunMode, type Share, type TermKind, type Workspace } from "@shared/types";
 import { AttachButton, AttachmentList, splitAttachments, useAttachments, withAttachments } from "@/components/Attachments";
 import { FileIcon } from "@/components/FileIcon";
 import { FileSearch } from "@/components/FileSearch";
@@ -542,9 +542,9 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
       return next;
     });
 
-  const runApp = () => {
+  const runApp = (mode?: RunMode) => {
     setPanel({ open: true, tab: "app" });
-    window.simpleton.startApp(workspace.id);
+    window.simpleton.startApp(workspace.id, mode);
   };
 
   const toggleTerminal = () => setPanel(panel.open && panel.tab === "shell" ? { open: false } : { open: true, tab: "shell" });

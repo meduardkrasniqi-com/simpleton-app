@@ -190,15 +190,17 @@ function forward(workspaceId: string, message: TunnelRequest) {
   const { previews, shares } = store.get();
   const preview = previews[workspaceId];
   const share = shares[workspaceId];
-  if (!share || !preview || (preview.state !== "running" && preview.state !== "starting")) return Promise.resolve(signal(message.id, "stopped", 503));
-  const starting = preview.state === "starting";
+  const app = preview && (preview.state === "running" || preview.state === "starting") ? preview : null;
+  const port = share?.port ?? app?.port;
+  if (!share || !port) return Promise.resolve(signal(message.id, "stopped", 503));
+  const starting = !share.port && app?.state === "starting";
 
   const host = `${share.name}.${domain}`;
-  const local = new RegExp(`^https?://(?:localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::1?\\]):${preview.port}(?=/|$)`, "i");
+  const local = new RegExp(`^https?://(?:localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::1?\\]):${port}(?=/|$)`, "i");
   const body = message.body ? Buffer.from(message.body, "base64") : null;
   const headers: Record<string, string> = {};
   for (const [key, value] of message.headers) if (!dropRequest.has(key.toLowerCase())) headers[key.toLowerCase()] = value;
-  headers.host = `localhost:${preview.port}`;
+  headers.host = `localhost:${port}`;
   headers["x-forwarded-host"] = host;
   headers["x-forwarded-proto"] = "https";
   headers["accept-encoding"] = "identity";
@@ -214,7 +216,7 @@ function forward(workspaceId: string, message: TunnelRequest) {
       resolve(response);
     };
 
-    const req = httpRequest({ host: "localhost", port: preview.port, method: message.method, path: message.path, headers }, (res) => {
+    const req = httpRequest({ host: "localhost", port, method: message.method, path: message.path, headers }, (res) => {
       const chunks: Buffer[] = [];
       let size = 0;
       res.on("data", (chunk: Buffer) => {
@@ -258,7 +260,7 @@ function forward(workspaceId: string, message: TunnelRequest) {
       });
     });
 
-    req.on("error", () => done(starting ? signal(message.id, "starting", 503) : signal(message.id, "unreachable", 502)));
+    req.on("error", () => done(starting ? signal(message.id, "starting", 503) : share.port ? signal(message.id, "stopped", 503) : signal(message.id, "unreachable", 502)));
     timer = setTimeout(() => {
       done(starting ? signal(message.id, "starting", 503) : signal(message.id, "timeout", 504));
       req.destroy();
@@ -283,13 +285,22 @@ function shut(id: string) {
   tunnels.delete(id);
 }
 
-export async function start(id: string) {
+const validPort = (port: unknown) => (typeof port === "number" && Number.isInteger(port) && port > 0 && port < 65536 ? port : undefined);
+
+export async function start(id: string, port?: number) {
   const { workspaces, shares } = store.get();
   const workspace = workspaces.find((w) => w.id === id);
   if (!workspace) throw new Error("Unknown workspace");
-  const name = shares[id]?.name ?? newName(workspace.branch);
-  await store.update((s) => ({ ...s, shares: { ...s.shares, [id]: { name, url: shareUrl(name), status: "connecting" } } }));
+  const current = shares[id];
+  const name = current?.name ?? newName(workspace.branch);
+  const target = port === undefined ? current?.port : validPort(port);
+  await store.update((s) => ({ ...s, shares: { ...s.shares, [id]: { name, url: shareUrl(name), status: "connecting", port: target } } }));
   open(id);
+}
+
+export async function retarget(id: string, port: number | null) {
+  if (!store.get().shares[id]) return;
+  await patch(id, { port: port === null ? undefined : validPort(port) });
 }
 
 export async function stop(id: string) {

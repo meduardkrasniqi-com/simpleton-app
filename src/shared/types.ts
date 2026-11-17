@@ -33,6 +33,7 @@ export type Workspace = {
   prState?: PrState;
   setup?: Setup;
   queue?: Queued[];
+  run?: RunMode;
 };
 
 export type Queued = { id: string; text: string };
@@ -158,10 +159,17 @@ export type TermSnapshot = {
   end: number;
 };
 
+export type RunMode = "dev" | "build";
+
+export type RunOption = { mode: RunMode; command: string };
+
+export type OpenPort = { port: number; name: string };
+
 export type Preview = {
   state: "installing" | "starting" | "running" | "stopped" | "failed";
   port: number;
   url: string;
+  mode?: RunMode;
 };
 
 export type ShareStatus = "connecting" | "live" | "error";
@@ -171,6 +179,7 @@ export type Share = {
   url: string;
   status: ShareStatus;
   error?: string;
+  port?: number;
 };
 
 export type Theme = "system" | "light" | "dark";
@@ -255,9 +264,12 @@ export type Api = {
   writeTerminal: (id: string, kind: TermKind, data: string) => void;
   resizeTerminal: (id: string, kind: TermKind, cols: number, rows: number) => void;
   onTerminal: (listener: (event: TermData) => void) => () => void;
-  startApp: (id: string) => Promise<void>;
+  startApp: (id: string, mode?: RunMode) => Promise<void>;
   stopApp: (id: string) => Promise<void>;
-  share: (id: string) => Promise<void>;
+  runOptions: (id: string) => Promise<RunOption[]>;
+  ports: (id: string) => Promise<OpenPort[]>;
+  share: (id: string, port?: number) => Promise<void>;
+  retarget: (id: string, port: number | null) => Promise<void>;
   unshare: (id: string) => Promise<void>;
   onCloseTab: (listener: () => void) => () => void;
   onOpenSettings: (listener: () => void) => () => void;
@@ -308,7 +320,10 @@ export const channels = {
   terminalData: "terminal:data",
   startApp: "app:start",
   stopApp: "app:stop",
+  runOptions: "app:run-options",
+  ports: "app:ports",
   share: "share:start",
+  retarget: "share:retarget",
   unshare: "share:stop",
   closeTab: "window:close-tab",
   openSettings: "window:open-settings",

@@ -52,9 +52,12 @@ const api: Api = {
     ipcRenderer.on(channels.terminalData, handler);
     return () => ipcRenderer.removeListener(channels.terminalData, handler);
   },
-  startApp: (id) => ipcRenderer.invoke(channels.startApp, id),
+  startApp: (id, mode) => ipcRenderer.invoke(channels.startApp, id, mode),
   stopApp: (id) => ipcRenderer.invoke(channels.stopApp, id),
-  share: (id) => ipcRenderer.invoke(channels.share, id),
+  runOptions: (id) => ipcRenderer.invoke(channels.runOptions, id),
+  ports: (id) => ipcRenderer.invoke(channels.ports, id),
+  share: (id, port) => ipcRenderer.invoke(channels.share, id, port),
+  retarget: (id, port) => ipcRenderer.invoke(channels.retarget, id, port),
   unshare: (id) => ipcRenderer.invoke(channels.unshare, id),
   onCloseTab: (listener) => {
     const handler = () => listener();

@@ -16,7 +16,7 @@ export async function load() {
   try {
     const parsed = JSON.parse(await readFile(file(), "utf8")) as Partial<AppState>;
     const shares: Record<string, Share> = {};
-    for (const [id, share] of Object.entries(parsed.shares ?? {})) shares[id] = { name: share.name, url: share.url, status: "connecting" };
+    for (const [id, share] of Object.entries(parsed.shares ?? {})) shares[id] = { name: share.name, url: share.url, status: "connecting", port: share.port };
     const base = empty();
     state = { ...base, repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], shares, theme: parsed.theme ?? base.theme, agent: parsed.agent ?? base.agent, defaults: { ...base.defaults, ...parsed.defaults } };
   } catch {

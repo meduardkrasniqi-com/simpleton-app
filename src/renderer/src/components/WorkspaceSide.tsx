@@ -1,6 +1,6 @@
-import { Archive, ArrowUpFromLine, ArrowUpRight, Check, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import type { FileChange, Pending, Preview, Share, Workspace } from "@shared/types";
+import { Archive, ArrowUpFromLine, ArrowUpRight, Check, ChevronDown, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
+import type { FileChange, OpenPort, Pending, Preview, RunMode, RunOption, Share, Workspace } from "@shared/types";
 import { ChangeLetter, changeTone, FileIcon } from "@/components/FileIcon";
 import { FileTree } from "@/components/FileTree";
 import { Loader } from "@/components/Loader";
@@ -9,6 +9,221 @@ import { Dot, ghost, outline, primary, Stat } from "@/components/ui";
 import { cn, totals } from "@/lib/utils";
 
 const size = "h-7 px-2.5 text-[12.5px]";
+
+const menu = "absolute right-0 top-full z-50 mt-1.5 origin-top-right rounded-[11px] border border-ink/[0.08] bg-menu p-1 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.22),0_4px_10px_-2px_rgba(0,0,0,0.08)] animate-pop";
+
+const item = "flex w-full items-center gap-2.5 rounded-[7px] px-2 text-left text-[13px] outline-none transition-colors hover:bg-ink/[0.06] focus-visible:bg-ink/[0.06]";
+
+const modeNames: Record<RunMode, string> = { dev: "Dev server", build: "Production build" };
+
+function useDismiss(root: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+  const latest = useRef(close);
+  latest.current = close;
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) latest.current();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [open, root]);
+}
+
+function navigate(e: ReactKeyboardEvent<HTMLElement>, close: () => void) {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    close();
+    return;
+  }
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>("[data-item]")];
+  const index = items.indexOf(document.activeElement as HTMLElement);
+  e.preventDefault();
+  items[(index + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+}
+
+function useRunOptions(workspace: Workspace) {
+  const [options, setOptions] = useState<RunOption[]>([]);
+  const ready = workspace.status !== "setup";
+  const refresh = () => {
+    if (ready) window.simpleton.runOptions(workspace.id).then(setOptions, () => undefined);
+  };
+  useEffect(refresh, [workspace.id, ready]);
+  return { options, refresh };
+}
+
+function RunButton({ workspace, preview, onRun }: { workspace: Workspace; preview?: Preview; onRun: (mode?: RunMode) => void }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const { options, refresh } = useRunOptions(workspace);
+  const live = preview?.state === "starting" || preview?.state === "running";
+  const mode = (live ? preview.mode : undefined) ?? workspace.run ?? "dev";
+  const split = options.length > 1;
+  const close = (refocus = false) => {
+    setOpen(false);
+    if (refocus) trigger.current?.focus();
+  };
+  useDismiss(root, open, close);
+
+  useEffect(() => {
+    if (open) root.current?.querySelector<HTMLElement>("[data-current]")?.focus();
+  }, [open]);
+
+  const pick = (next: RunMode) => {
+    close();
+    onRun(next);
+  };
+
+  return (
+    <div ref={root} className="relative flex">
+      {live ? (
+        <button type="button" onClick={() => window.simpleton.stopApp(workspace.id)} className={cn(outline, size, split && "rounded-r-none")}>
+          <Square className="size-2.5 fill-current" />
+          Stop
+        </button>
+      ) : (
+        <button type="button" onClick={() => onRun()} disabled={workspace.status === "setup"} className={cn(outline, size, split && "rounded-r-none", preview?.state === "failed" && "text-minus")}>
+          <Play className="size-3 fill-current" />
+          {split && mode === "build" ? "Run build" : "Run"}
+        </button>
+      )}
+      {split && (
+        <button
+          ref={trigger}
+          type="button"
+          onClick={() => {
+            if (!open) refresh();
+            setOpen(!open);
+          }}
+          disabled={workspace.status === "setup"}
+          aria-label="Run options"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className={cn(outline, "-ml-px h-7 w-6 rounded-l-none px-0", open && "bg-raised-hover")}
+        >
+          <ChevronDown className={cn("size-3.5 text-mute transition-transform duration-150", open && "rotate-180")} />
+        </button>
+      )}
+      {open && (
+        <div role="menu" onKeyDown={(e) => navigate(e, () => close(true))} className={cn(menu, "w-[280px]")}>
+          {options.map((o) => {
+            const selected = o.mode === mode;
+            return (
+              <button key={o.mode} type="button" role="menuitemradio" aria-checked={selected} data-item data-current={selected || undefined} onClick={() => pick(o.mode)} className={cn(item, "items-start py-1.5")}>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-ink">{modeNames[o.mode]}</span>
+                  <span className="mt-0.5 block truncate font-mono text-[11.5px] text-mute">{o.command}</span>
+                </span>
+                {selected && <Check className="mt-0.5 size-3.5 shrink-0 text-ink" strokeWidth={2.25} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShareTarget({ workspace, preview, share }: { workspace: Workspace; preview?: Preview; share: Share }) {
+  const [open, setOpen] = useState(false);
+  const [ports, setPorts] = useState<OpenPort[] | null>(null);
+  const [custom, setCustom] = useState("");
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const live = preview?.state === "starting" || preview?.state === "running";
+  const app = live ? preview : undefined;
+  const mode = app?.mode ?? workspace.run ?? "dev";
+  const close = (refocus = false) => {
+    setOpen(false);
+    setCustom("");
+    if (refocus) trigger.current?.focus();
+  };
+  useDismiss(root, open, close);
+
+  useEffect(() => {
+    if (!open) return;
+    setPorts(null);
+    window.simpleton.ports(workspace.id).then(setPorts, () => setPorts([]));
+  }, [open, workspace.id]);
+
+  useEffect(() => {
+    if (open && ports) root.current?.querySelector<HTMLElement>("[data-current]")?.focus();
+  }, [open, ports]);
+
+  const choose = (port: number | null) => {
+    close(true);
+    window.simpleton.retarget(workspace.id, port);
+  };
+
+  const others = (ports ?? []).filter((p) => p.port !== app?.port);
+  if (share.port && share.port !== app?.port && !others.some((p) => p.port === share.port)) others.unshift({ port: share.port, name: "Port" });
+  const typed = Number(custom);
+  const valid = Number.isInteger(typed) && typed > 0 && typed < 65536;
+  const label = share.port ? `:${share.port}` : app ? (app.mode === "build" ? "Build" : "Dev") : "App";
+
+  return (
+    <div ref={root} className="relative shrink-0">
+      <button
+        ref={trigger}
+        type="button"
+        onClick={() => (open ? close() : setOpen(true))}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Choose what this link shows"
+        className={cn("flex h-6 items-center gap-0.5 rounded-md pl-1.5 pr-1 font-mono text-[11.5px] text-mute outline-none hover:bg-ink/[0.06] hover:text-ink focus-visible:bg-ink/[0.06]", open && "bg-ink/[0.06] text-ink")}
+      >
+        {label}
+        <ChevronDown className={cn("size-3 transition-transform duration-150", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div role="menu" onKeyDown={(e) => navigate(e, () => close(true))} className={cn(menu, "w-[272px]")}>
+          <TargetItem selected={!share.port} title={modeNames[mode]} detail={app ? `localhost:${app.port}` : "Not running"} onClick={() => choose(null)} />
+          {ports === null ? (
+            <div className="flex h-8 items-center px-2">
+              <Loader className="text-mute" />
+            </div>
+          ) : (
+            others.map((p) => <TargetItem key={p.port} selected={share.port === p.port} title={p.name} detail={`localhost:${p.port}`} onClick={() => choose(p.port)} />)
+          )}
+          <div className="mx-1 my-1 h-px bg-ink/[0.06]" />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (valid) choose(typed);
+            }}
+            className="flex h-8 items-center gap-2.5 px-2 text-[13px]"
+          >
+            <span className="flex-1 text-soft">Other port</span>
+            <input
+              data-item
+              value={custom}
+              onChange={(e) => setCustom(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              inputMode="numeric"
+              placeholder="8080"
+              aria-label="Port"
+              className="h-6 w-[68px] rounded-md border border-ink/[0.09] bg-surface px-1.5 font-mono text-[12px] tabular-nums outline-none placeholder:text-ink/25 focus:border-ink/25"
+            />
+            <button type="submit" disabled={!valid} aria-label="Share this port" className="grid size-6 place-items-center rounded-md text-mute hover:bg-ink/[0.06] hover:text-ink disabled:opacity-30">
+              <Check className="size-3.5" strokeWidth={2.25} />
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TargetItem({ selected, title, detail, onClick }: { selected: boolean; title: string; detail: string; onClick: () => void }) {
+  return (
+    <button type="button" role="menuitemradio" aria-checked={selected} data-item data-current={selected || undefined} onClick={onClick} className={cn(item, "h-8")}>
+      <span className={cn("shrink-0", selected ? "text-ink" : "text-soft")}>{title}</span>
+      <span className="min-w-0 flex-1 truncate text-right font-mono text-[11.5px] text-mute">{detail}</span>
+      <span className="grid size-3.5 shrink-0 place-items-center">{selected && <Check className="size-3.5 text-ink" strokeWidth={2.25} />}</span>
+    </button>
+  );
+}
 
 function stored(key: string, fallback: boolean) {
   try {
@@ -185,15 +400,18 @@ function LinkRow({ icon, label, detail, trailing, muted, onClick, disabled, chil
   );
 }
 
-function Links({ workspace, preview, share, onRun }: { workspace: Workspace; preview?: Preview; share?: Share; onRun: () => void }) {
+function Links({ workspace, preview, share, onRun }: { workspace: Workspace; preview?: Preview; share?: Share; onRun: (mode?: RunMode) => void }) {
   const [copied, setCopied] = useState(false);
   const [creating, setCreating] = useState(false);
   const live = preview?.state === "starting" || preview?.state === "running";
 
   const create = async () => {
     setCreating(true);
-    if (!live) onRun();
     try {
+      if (live || share?.port) return await window.simpleton.share(workspace.id);
+      const [found] = await window.simpleton.ports(workspace.id);
+      if (found) return await window.simpleton.share(workspace.id, found.port);
+      onRun();
       await window.simpleton.share(workspace.id);
     } finally {
       setCreating(false);
@@ -228,7 +446,7 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
         <LinkRow
           icon={preview.state === "running" ? <Dot className="bg-ready" /> : <Loader className="text-mute" />}
           label="App"
-          detail={`localhost:${preview.port}`}
+          detail={`localhost:${preview.port}${preview.mode === "build" ? " · Build" : ""}`}
           trailing={preview.state === "running" && <ArrowUpRight className="size-3.5" />}
           disabled={preview.state !== "running"}
           onClick={() => window.open(preview.url)}
@@ -244,40 +462,37 @@ function Links({ workspace, preview, share, onRun }: { workspace: Workspace; pre
         />
       )}
       {share ? (
-        <LinkRow
-          icon={
-            share.status === "connecting" ? (
-              <Loader className="text-mute" />
-            ) : (
-              <Link className={cn("size-3.5", share.status === "live" ? "text-ready" : "text-minus")} />
-            )
-          }
-          label="Share"
-          detail={share.status === "error" ? share.error : share.url.replace("https://", "")}
-          trailing={
-            share.status === "error" ? (
-              "Retry"
-            ) : copied ? (
-              <>
-                <Check className="size-3.5 text-ready" />
-                Copied
-              </>
-            ) : (
-              <Copy className="size-3.5" />
-            )
-          }
-          onClick={share.status === "error" ? create : copy}
-        >
+        <div className="group -mx-2 flex h-8 items-center rounded-md pr-1 hover:bg-ink/[0.04]">
+          <button type="button" onClick={share.status === "error" ? create : copy} className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-2 pr-1.5 text-left text-[12.5px]">
+            <span className="grid size-4 shrink-0 place-items-center">
+              {share.status === "connecting" ? <Loader className="text-mute" /> : <Link className={cn("size-3.5", share.status === "live" ? "text-ready" : "text-minus")} />}
+            </span>
+            <span className="shrink-0 font-medium">Share</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-mute">{share.status === "error" ? share.error : share.url.replace("https://", "")}</span>
+            <span className="flex shrink-0 items-center gap-1 text-[12px] text-mute group-hover:text-ink">
+              {share.status === "error" ? (
+                "Retry"
+              ) : copied ? (
+                <>
+                  <Check className="size-3.5 text-ready" />
+                  Copied
+                </>
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+            </span>
+          </button>
+          <ShareTarget workspace={workspace} preview={preview} share={share} />
           <button
             type="button"
             onClick={() => window.simpleton.unshare(workspace.id)}
             aria-label="Stop sharing"
             title="Stop sharing"
-            className="absolute right-8 top-1.5 hidden size-5 place-items-center rounded bg-[color-mix(in_oklab,var(--color-ink)_4%,var(--color-surface))] text-mute hover:bg-[color-mix(in_oklab,var(--color-ink)_9%,var(--color-surface))] hover:text-minus group-hover:grid"
+            className="ml-0.5 grid size-6 shrink-0 place-items-center rounded-md text-mute opacity-0 transition-opacity hover:bg-ink/[0.06] hover:text-minus focus-visible:opacity-100 group-hover:opacity-100"
           >
             <X className="size-3.5" />
           </button>
-        </LinkRow>
+        </div>
       ) : (
         <LinkRow
           icon={creating ? <Loader className="text-mute" /> : <Link className="size-3.5 text-mute" />}
@@ -314,11 +529,10 @@ export function WorkspaceSide({
   activeFile: string;
   terminalOpen: boolean;
   onOpenFile: (path: string) => void;
-  onRun: () => void;
+  onRun: (mode?: RunMode) => void;
   onToggleTerminal: () => void;
   onCollapse: () => void;
 }) {
-  const live = preview?.state === "starting" || preview?.state === "running";
   const { width, resize, reset } = useWidth(
     "simpleton.width.right",
     () => Math.min(480, Math.max(360, window.innerWidth * 0.34)),
@@ -337,17 +551,7 @@ export function WorkspaceSide({
             <SquareTerminal className="size-3.5" />
             Terminal
           </button>
-          {live ? (
-            <button type="button" onClick={() => window.simpleton.stopApp(workspace.id)} className={cn(outline, size)}>
-              <Square className="size-2.5 fill-current" />
-              Stop
-            </button>
-          ) : (
-            <button type="button" onClick={onRun} disabled={workspace.status === "setup"} className={cn(outline, size, preview?.state === "failed" && "text-minus")}>
-              <Play className="size-3 fill-current" />
-              Run
-            </button>
-          )}
+          <RunButton workspace={workspace} preview={preview} onRun={onRun} />
           <PrButton workspace={workspace} pending={pending} />
         </div>
       </div>

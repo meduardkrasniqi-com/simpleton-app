@@ -1,10 +1,16 @@
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
 import { join } from "node:path";
-import type { Preview } from "@shared/types";
+import { promisify } from "node:util";
+import type { OpenPort, Preview, RunMode, RunOption } from "@shared/types";
 import * as store from "./store";
 import * as terminals from "./terminals";
+
+const exec = promisify(execFile);
+
+const tools = /\b(vite|next|astro|nuxt|nuxi|storybook|docusaurus|remix|react-router|webpack|wrangler|serve|http-server|rails|django|flask|uvicorn|php|bun|deno)\b(?:\s+(dev|preview|start|serve|server|runserver))?/;
 
 const portFlag = /\b(vite|next|astro|nuxt|nuxi|ng serve|webpack serve|webpack-dev-server|svelte-kit|react-router dev|remix vite:dev|storybook dev|docusaurus start)\b/;
 
@@ -35,16 +41,89 @@ function needsInstall(dir: string, m: Manifest) {
   return Object.keys({ ...m.dependencies, ...m.devDependencies }).length > 0 && !existsSync(join(dir, "node_modules"));
 }
 
-async function command(dir: string, port: number) {
+type Plan = { mode: RunMode; build?: string; serve: string };
+
+function plan(scripts: Record<string, string>, mode: RunMode): Plan | null {
+  if (mode === "build" && scripts.build) {
+    const serve = ["preview", "start", "serve"].find((name) => scripts[name]);
+    if (serve) return { mode, build: "build", serve };
+  }
+  const serve = ["dev", "start", "serve"].find((name) => scripts[name]);
+  return serve ? { mode: "dev", serve } : null;
+}
+
+async function command(dir: string, port: number, mode: RunMode) {
   const m = await manifest(dir);
   if (!m) return null;
   const scripts = m.scripts ?? {};
-  const script = ["dev", "start", "serve"].find((name) => scripts[name]);
-  if (!script) return null;
+  const p = plan(scripts, mode);
+  if (!p) return null;
   const pm = packageManager(dir);
-  const flag = portFlag.test(scripts[script]) ? (pm === "npm" ? ` -- --port ${port}` : ` --port ${port}`) : "";
+  const flag = portFlag.test(scripts[p.serve]) ? (pm === "npm" ? ` -- --port ${port}` : ` --port ${port}`) : "";
   const install = needsInstall(dir, m) ? `${pm} install && ` : "";
-  return `${install}${pm} run ${script}${flag}`;
+  const build = p.build ? `${pm} run ${p.build} && ` : "";
+  return { mode: p.mode, run: `${install}${build}${pm} run ${p.serve}${flag}` };
+}
+
+export async function options(id: string): Promise<RunOption[]> {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  const m = workspace && (await manifest(workspace.path));
+  if (!workspace || !m) return [];
+  const scripts = m.scripts ?? {};
+  const pm = packageManager(workspace.path);
+  const result: RunOption[] = [];
+  for (const mode of ["dev", "build"] as const) {
+    const p = plan(scripts, mode);
+    if (p?.mode === mode) result.push({ mode, command: `${p.build ? `${pm} run ${p.build} && ` : ""}${pm} run ${p.serve}` });
+  }
+  return result;
+}
+
+function fields(out: string) {
+  const rows: { pid: number; values: Record<string, string[]> }[] = [];
+  for (const line of out.split("\n")) {
+    if (!line) continue;
+    const key = line[0];
+    const value = line.slice(1);
+    if (key === "p") rows.push({ pid: Number(value), values: {} });
+    else if (rows.length) (rows[rows.length - 1].values[key] ??= []).push(value);
+  }
+  return rows;
+}
+
+export async function ports(id: string): Promise<OpenPort[]> {
+  const workspace = store.get().workspaces.find((w) => w.id === id);
+  if (!workspace) return [];
+  try {
+    const listening = fields((await exec("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcn"])).stdout).filter((row) => row.pid !== process.pid);
+    if (!listening.length) return [];
+    const pids = listening.map((row) => row.pid).join(",");
+    const cwds = new Map(fields((await exec("lsof", ["-a", "-d", "cwd", "-p", pids, "-F", "pn"])).stdout).map((row) => [row.pid, row.values.n?.[0] ?? ""]));
+    const root = await realpath(workspace.path).catch(() => workspace.path);
+    const inside = listening.filter((row) => {
+      const cwd = cwds.get(row.pid) ?? "";
+      return cwd === root || cwd.startsWith(`${root}/`);
+    });
+    if (!inside.length) return [];
+    const commands = new Map<number, string>();
+    const ps = await exec("ps", ["-o", "pid=,command=", "-p", inside.map((row) => row.pid).join(",")]).catch(() => ({ stdout: "" }));
+    for (const line of ps.stdout.split("\n")) {
+      const match = /^\s*(\d+)\s+(.*)$/.exec(line);
+      if (match) commands.set(Number(match[1]), match[2]);
+    }
+    const found = new Map<number, OpenPort>();
+    for (const row of inside) {
+      const tool = tools.exec(commands.get(row.pid) ?? "");
+      const name = tool ? [tool[1], tool[2]].filter(Boolean).join(" ") : (row.values.c?.[0] ?? "process");
+      for (const address of row.values.n ?? []) {
+        const port = Number(address.slice(address.lastIndexOf(":") + 1));
+        if (port && !found.has(port)) found.set(port, { port, name });
+      }
+    }
+    return [...found.values()].sort((a, b) => a.port - b.port);
+  } catch {
+    return [];
+  }
 }
 
 function free(port: number) {
@@ -157,9 +236,14 @@ export async function install(id: string) {
   }
 }
 
-export async function start(id: string) {
-  const workspace = store.get().workspaces.find((w) => w.id === id);
+export async function start(id: string, choice?: RunMode) {
+  let workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace) throw new Error("Unknown workspace");
+  if (choice && choice !== workspace.run) {
+    await store.update((s) => ({ ...s, workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, run: choice } : w)) }));
+    workspace = store.get().workspaces.find((w) => w.id === id) ?? workspace;
+  }
+  const mode = workspace.run ?? "dev";
   const install = installs.get(id);
   if (!install) {
     terminals.kill(id, "app");
@@ -167,12 +251,13 @@ export async function start(id: string) {
   }
   const port = await randomPort();
   const url = `http://localhost:${port}`;
-  if (!(await command(workspace.path, port))) {
+  const planned = await command(workspace.path, port, mode);
+  if (!planned) {
     terminals.print(id, "app", "No dev, start or serve script found in package.json.\n");
-    await set(id, { state: "failed", port, url });
+    await set(id, { state: "failed", port, url, mode });
     return;
   }
-  await set(id, { state: "starting", port, url });
+  await set(id, { state: "starting", port, url, mode: planned.mode });
   if (install) {
     const code = await install.done;
     const current = store.get().previews[id];
@@ -180,7 +265,7 @@ export async function start(id: string) {
     if (code !== 0) return void (await patch(id, { state: "failed" }));
     terminals.print(id, "app", "\n");
   }
-  const run = await command(workspace.path, port);
+  const run = (await command(workspace.path, port, mode))?.run;
   if (!run) return void (await patch(id, { state: "failed" }));
   terminals.print(id, "app", `$ PORT=${port} ${run}\n`);
   await terminals.spawn(id, "app", ["-ilc", run], { PORT: String(port) });

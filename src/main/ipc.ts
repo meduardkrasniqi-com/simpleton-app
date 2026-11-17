@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type TermKind, type Theme } from "@shared/types";
+import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type RunMode, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as attachments from "./attachments";
@@ -84,9 +84,12 @@ export function registerIpc() {
   ipcMain.handle(channels.openTerminal, (_event, id: string, kind: TermKind, cols: number, rows: number) => terminals.open(id, kind, cols, rows));
   ipcMain.on(channels.writeTerminal, (_event, id: string, kind: TermKind, data: string) => terminals.write(id, kind, data));
   ipcMain.on(channels.resizeTerminal, (_event, id: string, kind: TermKind, cols: number, rows: number) => terminals.resize(id, kind, cols, rows));
-  ipcMain.handle(channels.startApp, (_event, id: string) => apps.start(id));
+  ipcMain.handle(channels.startApp, (_event, id: string, mode?: RunMode) => apps.start(id, mode));
   ipcMain.handle(channels.stopApp, (_event, id: string) => apps.stop(id));
-  ipcMain.handle(channels.share, (_event, id: string) => share.start(id));
+  ipcMain.handle(channels.runOptions, (_event, id: string) => apps.options(id));
+  ipcMain.handle(channels.ports, (_event, id: string) => apps.ports(id));
+  ipcMain.handle(channels.share, (_event, id: string, port?: number) => share.start(id, port));
+  ipcMain.handle(channels.retarget, (_event, id: string, port: number | null) => share.retarget(id, port));
   ipcMain.handle(channels.unshare, (_event, id: string) => share.stop(id));
 
   store.subscribe((state) => {
