@@ -4,7 +4,7 @@ import { readFile, realpath } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { OpenPort, Preview, RunMode, RunOption } from "@shared/types";
+import type { InstallState, OpenPort, Preview, RunMode, RunOption } from "@shared/types";
 import * as store from "./store";
 import * as terminals from "./terminals";
 
@@ -60,9 +60,8 @@ async function command(dir: string, port: number, mode: RunMode) {
   if (!p) return null;
   const pm = packageManager(dir);
   const flag = portFlag.test(scripts[p.serve]) ? (pm === "npm" ? ` -- --port ${port}` : ` --port ${port}`) : "";
-  const install = needsInstall(dir, m) ? `${pm} install && ` : "";
   const build = p.build ? `${pm} run ${p.build} && ` : "";
-  return { mode: p.mode, run: `${install}${build}${pm} run ${p.serve}${flag}` };
+  return { mode: p.mode, run: `${build}${pm} run ${p.serve}${flag}` };
 }
 
 export async function options(id: string): Promise<RunOption[]> {
@@ -173,6 +172,10 @@ function patch(id: string, change: Partial<Preview>) {
   if (current) return set(id, { ...current, ...change });
 }
 
+function mark(id: string, value: InstallState) {
+  return store.update((s) => ({ ...s, installs: { ...s.installs, [id]: value } }));
+}
+
 function watch(id: string, port: number) {
   clearInterval(watchers.get(id));
   watchers.set(
@@ -198,16 +201,15 @@ terminals.onData(({ workspaceId, kind, data }) => {
 });
 
 terminals.onExit((workspaceId, kind, code) => {
-  if (kind !== "app") return;
-  const install = installs.get(workspaceId);
-  if (install) {
+  if (kind === "setup") {
+    const install = installs.get(workspaceId);
     installs.delete(workspaceId);
-    install.finish(code);
-    const preview = store.get().previews[workspaceId];
-    if (preview && code !== 0) terminals.print(workspaceId, "app", `\n[install exited with code ${code}]\n`);
-    if (preview?.state === "installing") patch(workspaceId, { state: code === 0 ? "stopped" : "failed" });
+    terminals.print(workspaceId, "setup", code === 0 ? "\n[setup finished]\n" : `\n[setup exited with code ${code}]\n`);
+    if (store.get().workspaces.some((w) => w.id === workspaceId)) mark(workspaceId, code === 0 ? "done" : "failed");
+    install?.finish(code);
     return;
   }
+  if (kind !== "app") return;
   clearInterval(watchers.get(workspaceId));
   const preview = store.get().previews[workspaceId];
   if (!preview) return;
@@ -216,24 +218,27 @@ terminals.onExit((workspaceId, kind, code) => {
 });
 
 export async function install(id: string) {
+  const running = installs.get(id);
+  if (running) return running.done;
   const workspace = store.get().workspaces.find((w) => w.id === id);
-  if (!workspace || installs.has(id) || store.get().previews[id]) return;
+  if (!workspace) return 1;
   const m = await manifest(workspace.path);
-  if (!m || !needsInstall(workspace.path, m)) return;
+  if (!m || !needsInstall(workspace.path, m)) return 0;
   const run = `${packageManager(workspace.path)} install`;
   let finish: (code: number) => void = () => undefined;
   const done = new Promise<number>((resolve) => (finish = resolve));
   installs.set(id, { done, finish });
-  await set(id, { state: "installing", port: 0, url: "" });
-  terminals.clear(id, "app");
-  terminals.print(id, "app", `$ ${run}\n`);
+  await mark(id, "running");
+  terminals.clear(id, "setup");
+  terminals.print(id, "setup", `$ ${run}\n`);
   try {
-    await terminals.spawn(id, "app", ["-ilc", run]);
+    await terminals.spawn(id, "setup", ["-ilc", run]);
   } catch {
     installs.delete(id);
     finish(1);
-    await patch(id, { state: "failed" });
+    await mark(id, "failed");
   }
+  return done;
 }
 
 export async function start(id: string, choice?: RunMode) {
@@ -244,11 +249,8 @@ export async function start(id: string, choice?: RunMode) {
     workspace = store.get().workspaces.find((w) => w.id === id) ?? workspace;
   }
   const mode = workspace.run ?? "dev";
-  const install = installs.get(id);
-  if (!install) {
-    terminals.kill(id, "app");
-    terminals.clear(id, "app");
-  }
+  terminals.kill(id, "app");
+  terminals.clear(id, "app");
   const port = await randomPort();
   const url = `http://localhost:${port}`;
   const planned = await command(workspace.path, port, mode);
@@ -258,12 +260,15 @@ export async function start(id: string, choice?: RunMode) {
     return;
   }
   await set(id, { state: "starting", port, url, mode: planned.mode });
-  if (install) {
-    const code = await install.done;
+  if (installs.has(id) || store.get().installs[id] !== "done") {
+    if (installs.has(id)) terminals.print(id, "app", "Waiting for setup to finish. Progress is in the Setup tab.\n");
+    const code = await install(id);
     const current = store.get().previews[id];
     if (current?.state !== "starting" || current.port !== port) return;
-    if (code !== 0) return void (await patch(id, { state: "failed" }));
-    terminals.print(id, "app", "\n");
+    if (code !== 0) {
+      terminals.print(id, "app", "Setup failed. See the Setup tab for details.\n");
+      return void (await patch(id, { state: "failed" }));
+    }
   }
   const run = (await command(workspace.path, port, mode))?.run;
   if (!run) return void (await patch(id, { state: "failed" }));
@@ -284,4 +289,8 @@ export async function forget(id: string) {
   installs.delete(id);
   terminals.forget(id);
   if (store.get().previews[id]) await set(id, null);
+  if (store.get().installs[id]) await store.update((s) => {
+    const { [id]: _, ...rest } = s.installs;
+    return { ...s, installs: rest };
+  });
 }

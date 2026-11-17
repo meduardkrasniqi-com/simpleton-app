@@ -77,7 +77,7 @@ export function Gallery({ items }: { items: Picture[] }) {
           {item.alt && <span className="min-w-0 truncate text-[12.5px] text-mute">{item.alt}</span>}
         </div>
       )}
-      {open && <Annotator path={item.path} onClose={() => setOpen(false)} />}
+      {open && <Annotator path={item.path} items={shown.map((picture) => picture.path)} onNavigate={(path) => setIndex(Math.max(0, shown.findIndex((picture) => picture.path === path)))} onClose={() => setOpen(false)} />}
     </div>
   );
 }

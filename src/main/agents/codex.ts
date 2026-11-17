@@ -49,7 +49,7 @@ function entry(item: Json, id: string, cwd: string): Entry | null {
 }
 
 export const codex: Driver = {
-  args: (cwd, sessionId, { model, effort, mode }) => [
+  args: (cwd, sessionId, { model, effort, mode, context }) => [
     "exec",
     "--json",
     "--sandbox",
@@ -58,7 +58,7 @@ export const codex: Driver = {
     ...(model ? ["--model", model] : []),
     ...(effort ? ["-c", `model_reasoning_effort="${effort}"`] : []),
     "-c",
-    `developer_instructions=${JSON.stringify(instructions)}`,
+    `developer_instructions=${JSON.stringify(instructions(context))}`,
     "--cd",
     cwd,
     ...(sessionId ? ["resume", sessionId] : []),

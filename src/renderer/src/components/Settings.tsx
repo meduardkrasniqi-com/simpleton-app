@@ -1,4 +1,4 @@
-import { ChevronsUpDown, Monitor, Moon, Sun } from "lucide-react";
+import { Camera, ChevronsUpDown, Monitor, Moon, Sun } from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { Agent, AppState, Theme } from "@shared/types";
 import { useAgentChoices, type Choice } from "@/components/RunSettings";
@@ -195,6 +195,23 @@ function Agents({ state }: { state: AppState }) {
               {agents[agent]}
             </button>
           ))}
+        </div>
+      </Section>
+      <Section title="Screenshots">
+        <div className="rounded-xl border border-line bg-raised">
+          <label className="flex h-12 cursor-default items-center gap-3 px-4">
+            <Camera className="size-[15px] shrink-0 text-mute" strokeWidth={1.75} />
+            <span className="flex-1 text-[13.5px]">Screenshot visual changes</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={state.screenshots}
+              onClick={() => window.simpleton.setScreenshots(!state.screenshots)}
+              className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", state.screenshots ? "bg-ink" : "bg-ink/[0.15]")}
+            >
+              <span className={cn("absolute top-0.5 left-0.5 size-4 rounded-full bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-transform", state.screenshots && "translate-x-4")} />
+            </button>
+          </label>
         </div>
       </Section>
       {list.map((agent) => (

@@ -7,7 +7,7 @@ type Listener = (state: AppState) => void;
 
 const file = () => join(app.getPath("userData"), "state.json");
 
-const empty = (): AppState => ({ repos: [], workspaces: [], previews: {}, shares: {}, theme: "system", agent: "claude-code", defaults: { "claude-code": {}, codex: {} } });
+const empty = (): AppState => ({ repos: [], workspaces: [], previews: {}, installs: {}, shares: {}, theme: "system", agent: "claude-code", defaults: { "claude-code": {}, codex: {} }, screenshots: true });
 
 let state: AppState = empty();
 const listeners = new Set<Listener>();
@@ -18,7 +18,7 @@ export async function load() {
     const shares: Record<string, Share> = {};
     for (const [id, share] of Object.entries(parsed.shares ?? {})) shares[id] = { name: share.name, url: share.url, status: "connecting", port: share.port };
     const base = empty();
-    state = { ...base, repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], shares, theme: parsed.theme ?? base.theme, agent: parsed.agent ?? base.agent, defaults: { ...base.defaults, ...parsed.defaults } };
+    state = { ...base, repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], shares, theme: parsed.theme ?? base.theme, agent: parsed.agent ?? base.agent, defaults: { ...base.defaults, ...parsed.defaults }, screenshots: parsed.screenshots ?? base.screenshots };
   } catch {
     state = empty();
   }
@@ -34,7 +34,7 @@ let writing: Promise<void> = Promise.resolve();
 async function persist(snapshot: AppState) {
   const target = file();
   await mkdir(dirname(target), { recursive: true });
-  const { previews: _, ...saved } = snapshot;
+  const { previews: _, installs: __, ...saved } = snapshot;
   await writeFile(`${target}.tmp`, JSON.stringify(saved, null, 2));
   await rename(`${target}.tmp`, target);
 }

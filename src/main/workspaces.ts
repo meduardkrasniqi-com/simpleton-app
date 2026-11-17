@@ -9,6 +9,7 @@ import * as apps from "./apps";
 import * as git from "./git";
 import * as naming from "./naming";
 import * as share from "./share";
+import * as shots from "./shots";
 import * as store from "./store";
 
 const worktreesDir = () => join(app.getPath("userData"), "worktrees");
@@ -159,7 +160,7 @@ export async function removeWorkspace(id: string) {
     delete shares[id];
     return { ...s, workspaces: s.workspaces.filter((w) => w.id !== id), previews, shares };
   });
-  await Promise.allSettled([agents.forget(id), apps.forget(id), share.stop(id)]);
+  await Promise.allSettled([agents.forget(id), apps.forget(id), share.stop(id), shots.forget(id)]);
   const repo = repos.find((r) => r.id === workspace.repoId);
   if (repo) git.removeWorktree(repo.path, workspace.path, workspace.branch, join(trashDir(), randomUUID())).catch(() => undefined);
   await saved;

@@ -1,6 +1,7 @@
 import { Archive, ArrowUpFromLine, ArrowUpRight, Check, ChevronDown, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import type { FileChange, OpenPort, Pending, Preview, RunMode, RunOption, Share, Workspace } from "@shared/types";
+import { Annotator } from "@/components/Annotator";
 import { ChangeLetter, changeTone, FileIcon } from "@/components/FileIcon";
 import { FileTree } from "@/components/FileTree";
 import { Loader } from "@/components/Loader";
@@ -258,6 +259,43 @@ function Section({ id, title, meta, grow, children }: { id: string; title: strin
       </button>
       {open && <div className={cn("px-4 pb-4", grow && "min-h-0 flex-1 overflow-y-auto px-2 pb-2")}>{children}</div>}
     </section>
+  );
+}
+
+const imageUrl = (path: string) => `simpleton-image://local${path.split("/").map(encodeURIComponent).join("/")}`;
+
+function Screenshots({ workspace }: { workspace: Workspace }) {
+  const [paths, setPaths] = useState<string[]>([]);
+  const [open, setOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      window.simpleton.shots(workspace.id).then(
+        (next) => alive && setPaths((current) => (current.join("\n") === next.join("\n") ? current : next)),
+        () => undefined,
+      );
+    load();
+    const timer = setInterval(load, 3000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [workspace.id]);
+
+  if (!paths.length) return null;
+
+  return (
+    <Section id="screenshots" title="Screenshots" meta={<span className="text-[12px] tabular-nums text-mute">{paths.length}</span>}>
+      <div className="grid max-h-56 grid-cols-3 gap-2 overflow-y-auto">
+        {paths.map((path) => (
+          <button key={path} type="button" onClick={() => setOpen(path)} title={path.slice(path.lastIndexOf("/") + 1)} className="aspect-[16/10] overflow-hidden rounded-md border border-line bg-panel transition-[border-color] hover:border-ink/25">
+            <img src={imageUrl(path)} alt="" loading="lazy" className="size-full object-cover object-top" />
+          </button>
+        ))}
+      </div>
+      {open && <Annotator path={open} items={paths} onNavigate={setOpen} onClose={() => setOpen(null)} />}
+    </Section>
   );
 }
 
@@ -570,6 +608,8 @@ export function WorkspaceSide({
       >
         <Links workspace={workspace} preview={preview} share={share} onRun={onRun} />
       </Section>
+
+      <Screenshots key={workspace.id} workspace={workspace} />
 
       <Files workspace={workspace} files={files} tree={tree} activeFile={activeFile} onOpenFile={onOpenFile} />
     </aside>

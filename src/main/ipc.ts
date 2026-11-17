@@ -8,6 +8,7 @@ import * as commands from "./commands";
 import * as images from "./images";
 import * as models from "./models";
 import * as share from "./share";
+import * as shots from "./shots";
 import * as store from "./store";
 import * as terminals from "./terminals";
 import * as workspaces from "./workspaces";
@@ -70,6 +71,9 @@ export function registerIpc() {
     const clean: AgentSettings = { model: settings.model || undefined, effort: settings.effort || undefined, mode: settings.mode || undefined };
     await store.update((state) => ({ ...state, defaults: { ...state.defaults, [agent]: clean } }));
   });
+  ipcMain.handle(channels.setScreenshots, async (_event, on: boolean) => {
+    await store.update((state) => ({ ...state, screenshots: on === true }));
+  });
   ipcMain.handle(channels.models, () => models.catalog());
   ipcMain.handle(channels.configure, (_event, id: string, settings: AgentSettings) => agents.configure(id, settings));
   ipcMain.handle(channels.transcript, (_event, id: string) => agents.transcript(id));
@@ -88,6 +92,7 @@ export function registerIpc() {
   ipcMain.handle(channels.stopApp, (_event, id: string) => apps.stop(id));
   ipcMain.handle(channels.runOptions, (_event, id: string) => apps.options(id));
   ipcMain.handle(channels.ports, (_event, id: string) => apps.ports(id));
+  ipcMain.handle(channels.shots, (_event, id: string) => shots.list(id));
   ipcMain.handle(channels.share, (_event, id: string, port?: number) => share.start(id, port));
   ipcMain.handle(channels.retarget, (_event, id: string, port: number | null) => share.retarget(id, port));
   ipcMain.handle(channels.unshare, (_event, id: string) => share.stop(id));

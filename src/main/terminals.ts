@@ -104,7 +104,7 @@ export function kill(workspaceId: string, kind: TermKind) {
 }
 
 export function forget(workspaceId: string) {
-  for (const kind of ["shell", "app"] as const) {
+  for (const kind of ["shell", "setup", "app"] as const) {
     kill(workspaceId, kind);
     terms.delete(key(workspaceId, kind));
   }

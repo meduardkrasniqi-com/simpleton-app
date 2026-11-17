@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Bot, Brain, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type RunMode, type Share, type TermKind, type Workspace } from "@shared/types";
+import { modes, type Entry, type FileChange, type InstallState, type Pending, type Preview, type Reply, type RunMode, type Share, type TermKind, type Workspace } from "@shared/types";
 import { AttachButton, AttachmentList, splitAttachments, useAttachments, withAttachments } from "@/components/Attachments";
 import { FileIcon } from "@/components/FileIcon";
 import { FileSearch } from "@/components/FileSearch";
@@ -476,7 +476,7 @@ function Tab({ active, title, onSelect, onClose, children }: { active: boolean; 
   );
 }
 
-export function WorkspaceView({ workspace, preview, share }: { workspace: Workspace; preview?: Preview; share?: Share }) {
+export function WorkspaceView({ workspace, preview, install, share }: { workspace: Workspace; preview?: Preview; install?: InstallState; share?: Share }) {
   const [files, setFiles] = useState<FileChange[] | null>(null);
   const [unpushed, setUnpushed] = useState<Pending | null>(null);
   const [side, setSideState] = useState(readSide);
@@ -759,11 +759,13 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
             <div className="flex shrink-0 flex-col border-t border-line" style={{ height: panel.height }}>
               <div onPointerDown={startResize} className="-mt-[3px] h-[5px] shrink-0 cursor-row-resize" />
               <div className="flex h-8 shrink-0 items-center gap-1 px-3">
-                {(["shell", "app"] as const)
-                  .filter((kind) => kind === "shell" || preview)
+                {(["shell", "setup", "app"] as const)
+                  .filter((kind) => (kind === "shell" ? true : kind === "setup" ? install : preview))
                   .map((kind) => (
-                    <button key={kind} type="button" onClick={() => setPanel({ tab: kind })} className={cn("h-6 rounded-md px-2 text-[12px] font-medium", panel.tab === kind ? "bg-ink/[0.06] text-ink" : "text-mute hover:text-ink")}>
-                      {kind === "shell" ? "Terminal" : "App"}
+                    <button key={kind} type="button" onClick={() => setPanel({ tab: kind })} className={cn("flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium", panel.tab === kind ? "bg-ink/[0.06] text-ink" : "text-mute hover:text-ink")}>
+                      {kind === "shell" ? "Terminal" : kind === "setup" ? "Setup" : "App"}
+                      {kind === "setup" && install === "running" && <Loader className="text-mute" />}
+                      {kind === "setup" && install === "failed" && <span className="size-1.5 rounded-full bg-minus" />}
                     </button>
                   ))}
                 <button type="button" onClick={() => setPanel({ open: false })} aria-label="Close panel" className={cn(ghost, "ml-auto size-6")}>
@@ -771,8 +773,8 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                 </button>
               </div>
               <div className="relative min-h-0 flex-1">
-                {(["shell", "app"] as const).map((kind) =>
-                  (kind === "shell" ? panel.shell : preview) ? (
+                {(["shell", "setup", "app"] as const).map((kind) =>
+                  (kind === "shell" ? panel.shell : kind === "setup" ? install : preview) ? (
                     <div key={kind} className={cn("absolute inset-0 pb-2 pl-3 pr-1", panel.tab !== kind && "invisible")}>
                       <TerminalView workspaceId={workspace.id} kind={kind} active={panel.tab === kind} />
                     </div>

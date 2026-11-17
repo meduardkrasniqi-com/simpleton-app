@@ -1,5 +1,5 @@
-import { ArrowUpRight, Ban, Check, Copy, Crop, Download, ExternalLink, MousePointer2, PenLine, Redo2, Square, Type, Undo2, X, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { ArrowUpRight, Ban, Check, ChevronLeft, ChevronRight, Copy, Crop, Download, ExternalLink, MousePointer2, PenLine, Redo2, Square, Type, Undo2, X, type LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Loader } from "@/components/Loader";
 import { cn } from "@/lib/utils";
@@ -345,11 +345,13 @@ function Tip({ label, children }: { label: string; children: ReactNode }) {
 
 const pill = "flex items-center gap-0.5 rounded-xl border border-white/[0.08] bg-[#1c1c1f]/95 p-1 shadow-[0_12px_40px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl";
 
+const navButton = "absolute top-1/2 z-10 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-white/[0.08] bg-[#1c1c1f]/90 text-white/70 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-colors hover:bg-[#2a2a2e] hover:text-white";
+
 const iconButton = "grid size-8 place-items-center rounded-lg text-white/60 transition-colors hover:bg-white/[0.08] hover:text-white disabled:pointer-events-none disabled:opacity-30";
 
 const divider = <span className="mx-1 h-5 w-px bg-white/10" />;
 
-export function Annotator({ path, onClose }: { path: string; onClose: () => void }) {
+export function Annotator({ path, items, onNavigate, onClose }: { path: string; items?: string[]; onNavigate?: (path: string) => void; onClose: () => void }) {
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const [failed, setFailed] = useState(false);
   const [doc, setDoc] = useState<Doc>({ shapes: [], crop: { x: 0, y: 0, w: 1, h: 1 } });
@@ -372,6 +374,9 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
   const textarea = useRef<HTMLTextAreaElement>(null);
   const draftRef = useRef<Draft | null>(null);
   const editingRef = useRef<Editing | null>(null);
+  const backdropDown = useRef(false);
+  const index = items ? items.indexOf(path) : -1;
+  const many = !!onNavigate && !!items && items.length > 1 && index >= 0;
 
   useEffect(() => {
     editingRef.current = editing;
@@ -391,6 +396,15 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
 
   useEffect(() => {
     let alive = true;
+    setFailed(false);
+    setPast([]);
+    setFuture([]);
+    setSelected(null);
+    setExported(null);
+    setEditing(null);
+    setCropDraft(null);
+    updateDraft(null);
+    setToolState((current) => (current === "crop" ? "select" : current));
     window.simpleton
       .readImage(path)
       .then((bytes) => createImageBitmap(new Blob([bytes as BlobPart])))
@@ -421,7 +435,7 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
     return layoutFor(doc.crop, prefs.backdrop, prefs.padding);
   }, [bitmap, cropping, doc.crop, prefs.backdrop, prefs.padding]);
   const framed = useMemo(() => (bitmap && !cropping && prefs.backdrop >= 0 ? rounded(bitmap, doc.crop, layout.radius) : null), [bitmap, cropping, prefs.backdrop, doc.crop, layout.radius]);
-  const scale = stage.w && stage.h ? Math.min((stage.w - 64) / layout.width, (stage.h - 32) / layout.height, 1) : 0;
+  const scale = stage.w && stage.h ? Math.min((stage.w - (many ? 160 : 64)) / layout.width, (stage.h - 32) / layout.height, 1) : 0;
   const tolerance = 7 / (scale || 1);
 
   useEffect(() => {
@@ -704,6 +718,22 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
     onClose();
   };
 
+  const go = (by: number) => {
+    if (!many || !items || !onNavigate) return;
+    if (past.length && doc !== exported && !confirm("Discard your annotations?")) return;
+    onNavigate(items[(index + by + items.length) % items.length]);
+  };
+
+  const backdrop = {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      backdropDown.current = e.target === e.currentTarget;
+    },
+    onClick: (e: ReactMouseEvent<HTMLElement>) => {
+      if (e.target === e.currentTarget && backdropDown.current) close();
+      backdropDown.current = false;
+    },
+  };
+
   const keys = useRef<(e: KeyboardEvent) => void>(() => undefined);
   keys.current = (e: KeyboardEvent) => {
     if (e.target === textarea.current) return;
@@ -717,7 +747,8 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
       if (tool === "crop") cancelCrop();
       else if (selected) setSelected(null);
       else close();
-    } else if (e.key === "Enter" && tool === "crop") finishCrop();
+    } else if (many && !mod && !selected && tool !== "crop" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) go(e.key === "ArrowLeft" ? -1 : 1);
+    else if (e.key === "Enter" && tool === "crop") finishCrop();
     else if ((e.key === "Backspace" || e.key === "Delete") && selected) remove();
     else if (!mod && !e.altKey && tools.some((t) => t.key.toLowerCase() === key)) setTool(tools.find((t) => t.key.toLowerCase() === key)!.id);
     else handled = false;
@@ -758,11 +789,16 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
 
   return createPortal(
     <div className="no-drag fixed inset-0 z-[60] flex animate-fade flex-col bg-[#0b0b0c]/[0.92] backdrop-blur-md">
-      <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 pl-24 pr-3">
+      <header {...backdrop} className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 pl-24 pr-3">
         <div className="flex min-w-0 items-center gap-1">
           <span className="min-w-0 truncate text-[12.5px] font-medium text-white/50" title={path}>
             {path.slice(path.lastIndexOf("/") + 1)}
           </span>
+          {many && items && (
+            <span className="shrink-0 pl-1 text-[12px] font-medium tabular-nums text-white/35">
+              {index + 1} / {items.length}
+            </span>
+          )}
           <button type="button" onClick={() => window.simpleton.openImage(path)} aria-label="Open in Preview" title="Open in Preview" className={cn(iconButton, "size-7 shrink-0")}>
             <ExternalLink className="size-3.5" />
           </button>
@@ -810,7 +846,17 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
         </div>
       </header>
 
-      <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center">
+      <div ref={stageRef} {...backdrop} className="relative flex min-h-0 flex-1 items-center justify-center">
+        {many && (
+          <>
+            <button type="button" onClick={() => go(-1)} aria-label="Previous image" title="Previous  ←" className={cn(navButton, "left-5")}>
+              <ChevronLeft className="size-5" />
+            </button>
+            <button type="button" onClick={() => go(1)} aria-label="Next image" title="Next  →" className={cn(navButton, "right-5")}>
+              <ChevronRight className="size-5" />
+            </button>
+          </>
+        )}
         {!bitmap && !failed && <Loader className="size-6 text-white/50" />}
         {failed && <p className="text-[13px] text-white/60">Couldn't open this image</p>}
         {bitmap && scale > 0 && (
@@ -846,7 +892,7 @@ export function Annotator({ path, onClose }: { path: string; onClose: () => void
         )}
       </div>
 
-      <footer className="flex h-20 shrink-0 items-center justify-center">
+      <footer {...backdrop} className="flex h-20 shrink-0 items-center justify-center">
         {bitmap && tool === "crop" ? (
           <div className={cn(pill, "gap-1 px-1.5")}>
             <span className="px-2 font-mono text-[12px] tabular-nums text-white/55">

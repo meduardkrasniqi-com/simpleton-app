@@ -1,12 +1,15 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { app } from "electron";
 import { defaultModes, type Agent, type AgentSettings, type Entry, type EntryEvent, type FileChange, type Reply, type Workspace } from "@shared/types";
+import * as apps from "../apps";
 import * as git from "../git";
+import * as shots from "../shots";
 import * as models from "../models";
 import * as pr from "../pr";
 import * as store from "../store";
@@ -101,6 +104,17 @@ function touched(before: FileChange[] | null, after: FileChange[] | null) {
   return after.filter((f) => prior.get(f.path) !== `${f.added}:${f.removed}`);
 }
 
+const browsers = ["Google Chrome.app/Contents/MacOS/Google Chrome", "Chromium.app/Contents/MacOS/Chromium", "Brave Browser.app/Contents/MacOS/Brave Browser", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge"];
+
+const browser = () => browsers.flatMap((path) => [join("/Applications", path), join(homedir(), "Applications", path)]).find((path) => existsSync(path));
+
+async function running(id: string) {
+  const preview = store.get().previews[id];
+  if (preview?.state === "running" || preview?.state === "starting") return { url: preview.url, ready: preview.state === "running" };
+  const port = (await apps.ports(id))[0]?.port;
+  return port ? { url: `http://localhost:${port}`, ready: true } : undefined;
+}
+
 export async function send(id: string, message: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   const text = message.trim();
@@ -130,10 +144,13 @@ export async function send(id: string, message: string) {
   const parse = driver.parser(workspace.path, runId);
 
   const requested = workspace.mode || defaultModes[workspace.agent];
+  const app = await running(id);
+  shots.publish(id, app?.ready ? app.url : "");
+  const context = { app, shots: shots.dir(id), appFile: shots.appFile(id), browser: browser(), screenshots: store.get().screenshots };
 
   let child: ChildProcess;
   try {
-    child = spawn(bin, driver.args(workspace.path, workspace.sessionId, { model: workspace.model, effort: workspace.effort, mode: requested, allow: workspace.allow }), { cwd: workspace.path, env: await env(), stdio: ["pipe", "pipe", "pipe"], detached: true });
+    child = spawn(bin, driver.args(workspace.path, workspace.sessionId, { model: workspace.model, effort: workspace.effort, mode: requested, allow: workspace.allow, context }), { cwd: workspace.path, env: await env(), stdio: ["pipe", "pipe", "pipe"], detached: true });
   } catch (error) {
     return fail(error instanceof Error ? error.message : String(error));
   }

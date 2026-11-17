@@ -158,7 +158,7 @@ function describe(name: string, input: Json, cwd: string): { verb: string; targe
 }
 
 export const claude: Driver = {
-  args: (_cwd, sessionId, { model, effort, mode, allow }) => [
+  args: (_cwd, sessionId, { model, effort, mode, allow, context }) => [
     "-p",
     "--input-format",
     "stream-json",
@@ -170,7 +170,7 @@ export const claude: Driver = {
     "--permission-mode",
     mode || "auto",
     "--append-system-prompt",
-    instructions,
+    instructions(context),
     "--add-dir",
     attachments.dir(),
     ...(allow?.length ? ["--settings", JSON.stringify({ permissions: { allow } })] : []),

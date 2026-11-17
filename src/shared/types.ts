@@ -145,7 +145,7 @@ export type FileChange = {
   status?: ChangeStatus;
 };
 
-export type TermKind = "shell" | "app";
+export type TermKind = "shell" | "setup" | "app";
 
 export type TermData = {
   workspaceId: string;
@@ -165,8 +165,10 @@ export type RunOption = { mode: RunMode; command: string };
 
 export type OpenPort = { port: number; name: string };
 
+export type InstallState = "running" | "done" | "failed";
+
 export type Preview = {
-  state: "installing" | "starting" | "running" | "stopped" | "failed";
+  state: "starting" | "running" | "stopped" | "failed";
   port: number;
   url: string;
   mode?: RunMode;
@@ -188,10 +190,12 @@ export type AppState = {
   repos: Repo[];
   workspaces: Workspace[];
   previews: Record<string, Preview>;
+  installs: Record<string, InstallState>;
   shares: Record<string, Share>;
   theme: Theme;
   agent: Agent;
   defaults: Record<Agent, AgentSettings>;
+  screenshots: boolean;
 };
 
 export type User = {
@@ -251,6 +255,7 @@ export type Api = {
   setTheme: (theme: Theme) => Promise<void>;
   setDefaultAgent: (agent: Agent) => Promise<void>;
   setAgentDefaults: (agent: Agent, settings: AgentSettings) => Promise<void>;
+  setScreenshots: (on: boolean) => Promise<void>;
   models: () => Promise<ModelCatalog>;
   configure: (id: string, settings: AgentSettings) => Promise<void>;
   transcript: (id: string) => Promise<Entry[]>;
@@ -268,6 +273,7 @@ export type Api = {
   stopApp: (id: string) => Promise<void>;
   runOptions: (id: string) => Promise<RunOption[]>;
   ports: (id: string) => Promise<OpenPort[]>;
+  shots: (id: string) => Promise<string[]>;
   share: (id: string, port?: number) => Promise<void>;
   retarget: (id: string, port: number | null) => Promise<void>;
   unshare: (id: string) => Promise<void>;
@@ -305,6 +311,7 @@ export const channels = {
   setTheme: "app:theme",
   setDefaultAgent: "settings:agent",
   setAgentDefaults: "settings:agent-defaults",
+  setScreenshots: "settings:screenshots",
   models: "agent:models",
   configure: "agent:configure",
   transcript: "agent:transcript",
@@ -322,6 +329,7 @@ export const channels = {
   stopApp: "app:stop",
   runOptions: "app:run-options",
   ports: "app:ports",
+  shots: "app:shots",
   share: "share:start",
   retarget: "share:retarget",
   unshare: "share:stop",
