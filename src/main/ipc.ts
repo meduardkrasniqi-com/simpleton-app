@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type RunMode, type TermKind, type Theme } from "@shared/types";
+import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type ReportKind, type RunMode, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as attachments from "./attachments";
@@ -7,6 +7,7 @@ import * as auth from "./auth";
 import * as commands from "./commands";
 import * as images from "./images";
 import * as models from "./models";
+import * as reports from "./reports";
 import * as share from "./share";
 import * as shots from "./shots";
 import * as store from "./store";
@@ -96,6 +97,10 @@ export function registerIpc() {
   ipcMain.handle(channels.share, (_event, id: string, port?: number) => share.start(id, port));
   ipcMain.handle(channels.retarget, (_event, id: string, port: number | null) => share.retarget(id, port));
   ipcMain.handle(channels.unshare, (_event, id: string) => share.stop(id));
+  ipcMain.handle(channels.reports, () => reports.snapshot());
+  ipcMain.handle(channels.writeReport, (_event, kind: ReportKind, start: string) => {
+    reports.write(kind, start).catch(() => undefined);
+  });
 
   store.subscribe((state) => {
     BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channels.stateChanged, state));
@@ -107,6 +112,10 @@ export function registerIpc() {
 
   terminals.onData((event) => {
     BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channels.terminalData, event));
+  });
+
+  reports.onChange((next) => {
+    BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channels.reportsChanged, next));
   });
 
   agents.onEntry((event) => {

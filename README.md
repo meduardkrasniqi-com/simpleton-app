@@ -48,6 +48,12 @@ New worktrees get copies of the repo's root `.env*` files, because git does not 
 
 Create PR (`src/main/pr.ts`) works without a GitHub token. It commits any uncommitted work, using the task's first line as the message, and pushes the branch with the user's own git credentials. If `gh` is installed, it then opens the PR with the agent's last message as the body. Otherwise it opens GitHub's new pull request page with the title and body filled in. Once a PR exists, the button becomes Commit & push, which commits new work and pushes it to the same branch.
 
+## Reports
+
+Reports (`src/main/reports.ts`) shows an activity heatmap and short daily and weekly summaries. `src/main/activity.ts` logs each task, agent run, opened PR and merge to `activity.json`, with the prompt and an excerpt of the agent's last reply. The log outlives deleted workspaces. On first launch it is backfilled from existing workspaces. `src/main/commits.ts` adds the user's own commits from every added repo, matched on `git config user.email` across all branches, so work done outside Simpleton counts too. The heatmap counts agent runs plus commits.
+
+Every 15 minutes and on wake, Simpleton writes any missing daily report for the last 7 days and the weekly report for the last full Sunday to Saturday week, so the weekly report appears on Sunday. Each report is one `claude -p --model claude-sonnet-5-5` call with a JSON schema, run on the user's subscription. Without Claude Code it falls back to one line per task. Reports are saved in `reports.json`. Clicking a day in the heatmap opens its report, or offers to write one, which also works for today.
+
 ## Ship
 
 ```bash

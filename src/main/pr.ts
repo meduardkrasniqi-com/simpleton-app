@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { app } from "electron";
 import type { PrState, Workspace } from "@shared/types";
+import * as activity from "./activity";
 import { shellEnv, which } from "./env";
 import * as store from "./store";
 
@@ -50,6 +51,8 @@ async function run(id: string, hint?: string) {
   if (prState === "merged" && settled && current.status !== "merged") change.status = "merged";
   if (prState && prState !== "merged" && current.status === "merged") change.status = "ready";
   if (Object.keys(change).length) await patch(id, change);
+  if (change.prUrl && !current.prUrl) activity.record(current, { kind: "pr" }).catch(() => undefined);
+  if (change.prState === "merged") activity.record(current, { kind: "merged" }).catch(() => undefined);
 }
 
 export function sync(id: string, hint?: string) {

@@ -186,6 +186,37 @@ export type Share = {
 
 export type Theme = "system" | "light" | "dark";
 
+export type ActivityKind = "task" | "turn" | "pr" | "merged";
+
+export type Activity = {
+  id: string;
+  at: number;
+  kind: ActivityKind;
+  workspaceId: string;
+  repo: string;
+  title: string;
+  text?: string;
+  reply?: string;
+  files?: number;
+};
+
+export type ReportKind = "daily" | "weekly";
+
+export type ReportStats = { tasks: number; runs: number; commits?: number; prs: number; merged: number };
+
+export type Report = {
+  id: string;
+  kind: ReportKind;
+  start: string;
+  end: string;
+  bullets: string[];
+  stats: ReportStats;
+  state: "writing" | "ready";
+  createdAt: number;
+};
+
+export type Reports = { days: Record<string, number>; reports: Report[] };
+
 export type AppState = {
   repos: Repo[];
   workspaces: Workspace[];
@@ -284,6 +315,9 @@ export type Api = {
   login: () => Promise<void>;
   cancelLogin: () => Promise<void>;
   logout: () => Promise<void>;
+  reports: () => Promise<Reports>;
+  onReports: (listener: (reports: Reports) => void) => () => void;
+  writeReport: (kind: ReportKind, start: string) => Promise<void>;
 };
 
 export const channels = {
@@ -340,4 +374,7 @@ export const channels = {
   login: "auth:login",
   cancelLogin: "auth:cancel",
   logout: "auth:logout",
+  reports: "reports:get",
+  reportsChanged: "reports:changed",
+  writeReport: "reports:write",
 } as const;

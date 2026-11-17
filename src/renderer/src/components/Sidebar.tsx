@@ -1,4 +1,4 @@
-import { AppWindow, Archive, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Plus, Settings, Trash2, X } from "lucide-react";
+import { AppWindow, Archive, ChartNoAxesColumn, ChevronRight, FolderGit2, FolderPlus, House, Link, LogOut, Plus, Settings, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AppState, Preview, Share, User, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
@@ -111,7 +111,7 @@ function useCollapsed() {
   return { collapsed, toggle };
 }
 
-export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: AppState; user: User; active: string; onSelect: (id: string) => void; onNewTask: (repoId: string) => void }) {
+export function Sidebar({ state, user, active, unread, onSelect, onNewTask }: { state: AppState; user: User; active: string; unread: boolean; onSelect: (id: string) => void; onNewTask: (repoId: string) => void }) {
   const { width, resize, reset } = useWidth(
     "simpleton.width.left",
     () => 260,
@@ -137,6 +137,11 @@ export function Sidebar({ state, user, active, onSelect, onNewTask }: { state: A
         <Item active={active === "home"} onClick={() => onSelect("home")}>
           <House className="size-4 text-mute" />
           Home
+        </Item>
+        <Item active={active === "reports"} onClick={() => onSelect("reports")} className="mt-px">
+          <ChartNoAxesColumn className="size-4 text-mute" />
+          <span className="flex-1">Reports</span>
+          {unread && active !== "reports" && <span aria-label="New report" className="size-[7px] rounded-full bg-ask" />}
         </Item>
         <Item onClick={() => window.simpleton.addRepo()} className="mt-px">
           <FolderPlus className="size-4 shrink-0 text-mute" />

@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { app } from "electron";
 import { defaultModes, type Agent, type AgentSettings, type Entry, type EntryEvent, type FileChange, type Reply, type Workspace } from "@shared/types";
+import * as activity from "../activity";
 import * as apps from "../apps";
 import * as git from "../git";
 import * as shots from "../shots";
@@ -127,6 +128,7 @@ export async function send(id: string, message: string) {
 
   await transcript(id);
   upsert(id, { id: randomUUID(), kind: "user", text });
+  const mark = transcripts.get(id)?.length ?? 0;
   await patch(id, { status: "working", setup: undefined });
 
   const fail = async (reason: string) => {
@@ -237,6 +239,17 @@ export async function send(id: string, message: string) {
         const files = touched(await before, await snapshot(workspace));
         upsert(id, { id: randomUUID(), kind: "turn", ms, files });
         await patch(id, { status: failed ? "input" : "ready" });
+        const reply = (transcripts.get(id) ?? []).slice(mark).findLast((e): e is Extract<Entry, { kind: "assistant" }> => e.kind === "assistant" && !e.parent)?.text;
+        const current = store.get().workspaces.find((w) => w.id === id);
+        if (current)
+          activity
+            .record(current, {
+              kind: "turn",
+              text: activity.clip(text, 400),
+              reply: reply ? activity.clip(reply, 600) : undefined,
+              files: files.length || undefined,
+            })
+            .catch(() => undefined);
         const said = (transcripts.get(id) ?? []).flatMap((entry) => (entry.kind === "assistant" ? [entry.text] : [])).join("\n");
         pr.sync(id, pr.findUrl(said)).catch(() => undefined);
         if (run.resume || (!run.stopped && !failed)) drain(id).catch(() => undefined);

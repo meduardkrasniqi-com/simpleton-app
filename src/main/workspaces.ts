@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { app } from "electron";
 import type { NewWorkspace, Repo, SetupStep, Workspace } from "@shared/types";
+import * as activity from "./activity";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as git from "./git";
@@ -74,6 +75,7 @@ export async function createWorkspace(input: NewWorkspace) {
     mode: input.mode || undefined,
   };
   await store.update((s) => ({ ...s, workspaces: [...s.workspaces, workspace] }));
+  activity.record(workspace, { kind: "task", text: activity.clip(workspace.task, 600) }).catch(() => undefined);
   setup(id).catch(() => undefined);
   return workspace;
 }

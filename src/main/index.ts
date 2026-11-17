@@ -7,6 +7,7 @@ import { registerIpc } from "./ipc";
 import { setMenu } from "./menu";
 import * as models from "./models";
 import * as pr from "./pr";
+import * as reports from "./reports";
 import * as workspaces from "./workspaces";
 import * as share from "./share";
 import * as spotlight from "./spotlight";
@@ -88,6 +89,7 @@ app.whenReady().then(async () => {
   workspaces.emptyTrash();
   registerIpc();
   pr.watch();
+  reports.init().catch(() => undefined);
   models.catalog().catch(() => undefined);
   setMenu();
   createWindow();
