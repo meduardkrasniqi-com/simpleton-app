@@ -40,7 +40,7 @@ The code is in `src/main/agents`. `claude.ts` and `codex.ts` turn each CLI's JSO
 
 Each workspace has a terminal in its worktree and a Run button for the app. Both use `node-pty` (`src/main/terminals.ts`). The postinstall step makes node-pty's `spawn-helper` executable, because the published prebuild ships without the exec bit.
 
-Run (`src/main/apps.ts`) picks the `dev`, `start` or `serve` script from `package.json`. It detects the package manager from the lockfile and picks a free random port between 4000 and 9000. The port is passed as `PORT`, and also as `--port` for tools that ignore `PORT`, such as Vite, Next, Astro and Nuxt. If the project has dependencies and the worktree has no `node_modules`, Run installs them first. The header link uses the URL the server prints, or the port once it starts accepting connections.
+Run (`src/main/apps.ts`) picks the `dev`, `start` or `serve` script from `package.json`. It detects the package manager from the lockfile and picks a free random port between 4000 and 9000. The port is passed as `PORT`, and also as `--port` for tools that ignore `PORT`, such as Vite, Next, Astro and Nuxt. New worktrees install dependencies in the background right after they are created, in the Setup tab of the terminal panel. Run waits for that install if it is still going and never installs on its own terminal. The header link uses the URL the server prints, or the port once it starts accepting connections.
 
 New worktrees get copies of the repo's root `.env*` files, because git does not check out ignored files.
 
