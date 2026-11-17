@@ -22,6 +22,8 @@ function entry(item: Json, id: string, cwd: string): Entry | null {
   switch (item.type) {
     case "agent_message":
       return text(item.text).trim() ? { id, kind: "assistant", text: text(item.text).trim() } : null;
+    case "reasoning":
+      return text(item.text).trim() ? { id, kind: "thinking", text: text(item.text).trim() } : null;
     case "command_execution": {
       const full = unwrap(text(item.command)).trim();
       return { ...tool("Run", command(full, cwd)), command: full, output: output(item.aggregated_output) } as Entry;

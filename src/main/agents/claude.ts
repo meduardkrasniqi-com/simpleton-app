@@ -118,7 +118,7 @@ function answer(pending: Pending, reply: Reply): Answer {
   return { response: allow(), entry: { ...entry, approval: { ...entry.approval, state: "allowed" } } };
 }
 
-function describe(name: string, input: Json, cwd: string): { verb: string; target: string } {
+function describe(name: string, input: Json, cwd: string): { verb: string; target: string; label?: string } {
   const file = (key = "file_path") => {
     const path = text(input[key]);
     if (!path) return "";
@@ -127,7 +127,7 @@ function describe(name: string, input: Json, cwd: string): { verb: string; targe
   };
   switch (name) {
     case "Bash":
-      return { verb: "Run", target: command(text(input.command), cwd) };
+      return { verb: "Run", target: command(text(input.command), cwd), ...(text(input.description).trim() ? { label: text(input.description).trim() } : {}) };
     case "Read":
       return { verb: "Read", target: file() };
     case "Edit":
@@ -174,6 +174,8 @@ export const claude: Driver = {
     ...(allow?.length ? ["--settings", JSON.stringify({ permissions: { allow } })] : []),
     ...(model ? ["--model", model] : []),
     ...(effort ? ["--effort", effort] : []),
+    "--thinking-display",
+    "summarized",
     ...(sessionId ? ["--resume", sessionId] : []),
   ],
 
@@ -227,6 +229,9 @@ export const claude: Driver = {
 
       if (event.type === "assistant") {
         for (const block of list(record(event.message).content).map(record)) {
+          if (block.type === "thinking" && text(block.thinking).trim()) {
+            updates.push({ entry: { id: `${runId}:${seq++}`, kind: "thinking", text: text(block.thinking).trim() } });
+          }
           if (block.type === "text" && text(block.text).trim()) {
             updates.push({ entry: { id: `${runId}:${seq++}`, kind: "assistant", text: text(block.text).trim() } });
           }

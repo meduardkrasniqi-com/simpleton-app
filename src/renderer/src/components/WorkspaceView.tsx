@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Bot, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Brain, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { modes, type Entry, type FileChange, type Pending, type Preview, type Reply, type Share, type TermKind, type Workspace } from "@shared/types";
 import { AttachButton, AttachmentList, splitAttachments, useAttachments, withAttachments } from "@/components/Attachments";
@@ -55,7 +55,7 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
             <span className="grid place-items-center transition-opacity group-hover:opacity-0">{icon}</span>
             <ChevronRight className={cn("absolute size-3.5 text-mute opacity-0 transition-[opacity,transform] group-hover:opacity-100", open && "rotate-90")} />
           </span>
-          <span className={cn("shrink-0 font-medium", running ? "shimmer" : "text-soft")}>{entry.verb}</span>
+          <span className={cn("shrink-0 font-medium", running ? "shimmer" : "text-soft", entry.label && "max-w-[70%] truncate")}>{entry.label ?? entry.verb}</span>
           <span className={cn("min-w-0 truncate font-mono text-[12px]", running ? "shimmer" : "text-mute group-hover:text-ink")}>{entry.target}</span>
           {denied}
         </button>
@@ -91,19 +91,44 @@ function Tool({ entry, onOpen, onReply }: { entry: Extract<Entry, { kind: "tool"
   );
 }
 
+function Thinking({ entry }: { entry: Extract<Entry, { kind: "thinking" }> }) {
+  const [open, setOpen] = useState(false);
+  const preview = entry.text.split("\n").find((line) => line.trim())?.replace(/[*_#`]/g, "").trim() ?? "";
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="group flex h-6 w-full min-w-0 items-center gap-2 text-left text-[12.5px]">
+        <span className="relative grid size-3.5 shrink-0 place-items-center">
+          <Brain className="size-3.5 text-mute transition-opacity group-hover:opacity-0" />
+          <ChevronRight className={cn("absolute size-3.5 text-mute opacity-0 transition-[opacity,transform] group-hover:opacity-100", open && "rotate-90")} />
+        </span>
+        <span className="shrink-0 font-medium text-soft">Thought</span>
+        {!open && <span className="min-w-0 truncate text-mute group-hover:text-ink">{preview}</span>}
+      </button>
+      {open && (
+        <div className="mb-2 ml-[7px] mt-1 border-l border-line pl-[14px] text-soft [&_*]:text-[13px]">
+          <Markdown text={entry.text} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const shown = 2;
 
-function Turn({ entry, onOpen }: { entry: Extract<Entry, { kind: "turn" }>; onOpen: (path: string) => void }) {
+function Turn({ entry, grouped, onOpen }: { entry: Extract<Entry, { kind: "turn" }>; grouped?: boolean; onOpen: (path: string) => void }) {
+  if (grouped && !entry.files.length) return null;
   const first = entry.files.slice(0, shown);
   const rest = entry.files.slice(shown);
   const added = entry.files.reduce((n, f) => n + f.added, 0);
   const removed = entry.files.reduce((n, f) => n + f.removed, 0);
   return (
     <div className="flex h-6 min-w-0 items-center gap-3 text-[12px] text-mute">
-      <span className="flex shrink-0 items-center gap-1.5" title="Response time">
-        <Clock className="size-3.5" />
-        {duration(entry.ms)}
-      </span>
+      {!grouped && (
+        <span className="flex shrink-0 items-center gap-1.5" title="Response time">
+          <Clock className="size-3.5" />
+          {duration(entry.ms)}
+        </span>
+      )}
       {entry.files.length > 0 && (
         <span className="flex min-w-0 items-center gap-1.5">
           <FilePen className="size-3.5 shrink-0" />
@@ -124,7 +149,56 @@ function Turn({ entry, onOpen }: { entry: Extract<Entry, { kind: "turn" }>; onOp
   );
 }
 
-function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace["agent"]; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
+type Item = { kind: "entry"; entry: Entry; grouped?: boolean } | { kind: "steps"; id: string; entries: Entry[]; ms: number };
+
+const stepKinds = new Set<Entry["kind"]>(["tool", "thinking", "assistant", "notice"]);
+
+function group(entries: Entry[]): Item[] {
+  const chunks: Entry[][] = [];
+  for (const entry of entries) {
+    if (entry.kind === "user" || !chunks.length) chunks.push([entry]);
+    else chunks[chunks.length - 1].push(entry);
+  }
+  return chunks.flatMap((chunk): Item[] => {
+    const head = chunk[0].kind === "user" ? [chunk[0]] : [];
+    const body = chunk.slice(head.length);
+    const turn = body[body.length - 1];
+    const reply = body[body.length - 2];
+    const before = body.slice(0, -2);
+    const steps = before.filter((e) => stepKinds.has(e.kind) && !isPending(e));
+    if (turn?.kind !== "turn" || reply?.kind !== "assistant" || !steps.length) return chunk.map((entry) => ({ kind: "entry", entry }));
+    return [
+      ...head.map((entry): Item => ({ kind: "entry", entry })),
+      { kind: "steps", id: `${steps[0].id}:steps`, entries: steps, ms: turn.ms },
+      ...before.filter((e) => !steps.includes(e)).map((entry): Item => ({ kind: "entry", entry })),
+      { kind: "entry", entry: reply },
+      { kind: "entry", entry: turn, grouped: true },
+    ];
+  });
+}
+
+function Steps({ item, render }: { item: Extract<Item, { kind: "steps" }>; render: (entry: Entry) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="group flex h-6 items-center gap-1.5 text-[12.5px] text-mute hover:text-ink">
+        Worked for {duration(item.ms)}
+        <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} />
+      </button>
+      {open && (
+        <div className="mt-2">
+          {item.entries.map((entry, i) => (
+            <div key={entry.id} className={gap(item.entries[i - 1], entry)}>
+              {render(entry)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Row({ entry, agent, grouped, onOpen, onReply }: { entry: Entry; agent: Workspace["agent"]; grouped?: boolean; onOpen: (path: string) => void; onReply: (reply: Reply) => void }) {
   switch (entry.kind) {
     case "user": {
       const message = splitAttachments(entry.text);
@@ -141,6 +215,8 @@ function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace
     }
     case "assistant":
       return <Markdown text={entry.text} />;
+    case "thinking":
+      return <Thinking entry={entry} />;
     case "tool":
       return <Tool entry={entry} onOpen={onOpen} onReply={onReply} />;
     case "question":
@@ -148,7 +224,7 @@ function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace
     case "plan":
       return <PlanCard entry={entry} modeLabel={modes[agent].find((m) => m.id === entry.mode)?.label} onReply={onReply} />;
     case "turn":
-      return <Turn entry={entry} onOpen={onOpen} />;
+      return <Turn entry={entry} grouped={grouped} onOpen={onOpen} />;
     case "notice":
       return (
         <div className="flex gap-2 text-[12.5px] leading-[1.5] text-mute">
@@ -166,10 +242,18 @@ function Row({ entry, agent, onOpen, onReply }: { entry: Entry; agent: Workspace
   }
 }
 
+function spacing(previous: Item | undefined, item: Item) {
+  if (!previous) return "";
+  if (item.kind === "steps") return "mt-4";
+  if (previous.kind === "steps") return item.entry.kind === "turn" ? "mt-2" : "mt-3";
+  return gap(previous.entry, item.entry);
+}
+
 function gap(previous: Entry | undefined, entry: Entry) {
   if (!previous) return "";
   if (entry.kind === "turn") return "mt-2";
-  if (previous.kind === "tool" && entry.kind === "tool" && !isPending(previous) && !isPending(entry)) return "mt-0.5";
+  const step = (e: Entry) => e.kind === "thinking" || (e.kind === "tool" && !isPending(e));
+  if (step(previous) && step(entry)) return "mt-0.5";
   if (entry.kind === "user") return "mt-8";
   return "mt-4";
 }
@@ -512,6 +596,7 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
   openRef.current = openFile;
   const links = useMemo(() => ({ root: workspace.path, resolve: resolver(workspace.path, tree), open: (path: string) => openRef.current(path) }), [workspace.path, tree]);
 
+  const items = useMemo(() => group(entries ?? []), [entries]);
   const last = entries?.[entries.length - 1];
   const pinnedEntry = pinned ? entries?.find((e) => e.id === pinned) : undefined;
   const pending = entries?.find(isPending);
@@ -575,11 +660,17 @@ export function WorkspaceView({ workspace, preview, share }: { workspace: Worksp
                       <WorkspaceSetup workspace={workspace} />
                     </>
                   )}
-                  {entries?.map((entry, i) => (
-                    <div key={entry.id} data-user={entry.kind === "user" ? entry.id : undefined} className={gap(entries[i - 1], entry)}>
-                      <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />
-                    </div>
-                  ))}
+                  {items.map((item, i) =>
+                    item.kind === "steps" ? (
+                      <div key={item.id} className={spacing(items[i - 1], item)}>
+                        <Steps item={item} render={(entry) => <Row entry={entry} agent={workspace.agent} onOpen={openFile} onReply={reply(entry.id)} />} />
+                      </div>
+                    ) : (
+                      <div key={item.entry.id} data-user={item.entry.kind === "user" ? item.entry.id : undefined} className={spacing(items[i - 1], item)}>
+                        <Row entry={item.entry} agent={workspace.agent} grouped={item.grouped} onOpen={openFile} onReply={reply(item.entry.id)} />
+                      </div>
+                    ),
+                  )}
                   {thinking && <Activity id={`${workspace.id}:${entries?.filter((e) => e.kind === "user").length ?? 0}`} className={entries?.length ? "mt-4" : ""} />}
                 </div>
               </div>

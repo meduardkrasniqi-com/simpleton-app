@@ -48,7 +48,7 @@ export function ApprovalCard({ entry, icon: Icon, onReply }: { entry: ToolEntry;
     <div className={card}>
       <div className="flex min-w-0 items-center gap-2 px-3.5 pt-3 text-[13px]">
         <Icon className="size-3.5 shrink-0 text-ask" />
-        <span className="shrink-0 font-medium">{entry.verb}</span>
+        <span className="min-w-0 shrink-0 truncate font-medium">{entry.label ?? entry.verb}</span>
         {showTarget && entry.target && (
           <span className="selectable min-w-0 truncate font-mono text-[12px] text-mute" title={entry.target}>
             {entry.target}
