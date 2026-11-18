@@ -14,8 +14,12 @@ jobs:
         include:
           - runner: ubuntu-22.04
             arch: x64
+            deb: amd64
+            appimage: x86_64
           - runner: ubuntu-22.04-arm
             arch: arm64
+            deb: arm64
+            appimage: arm64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +31,14 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx electron-builder --linux --${{ matrix.arch }} --publish ${{ inputs.publish && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+      - if: inputs.publish
+        run: |
+          version=$(node -p "require('./package.json').version")
+          cp dist/*.deb "dist/Simpleton-${{ matrix.deb }}.deb"
+          cp dist/*.AppImage "dist/Simpleton-${{ matrix.appimage }}.AppImage"
+          gh release upload "v$version" "dist/Simpleton-${{ matrix.deb }}.deb" "dist/Simpleton-${{ matrix.appimage }}.AppImage" -R simpleton-io/releases --clobber
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
       - uses: actions/upload-artifact@v4
