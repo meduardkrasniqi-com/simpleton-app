@@ -212,6 +212,14 @@ textarea,
   -webkit-app-region: drag;
 }
 
+:root:not([data-platform="darwin"]) body {
+  background: var(--color-surface);
+}
+
+:root:not([data-platform="darwin"]) .titlebar {
+  height: 0.625rem;
+}
+
 .no-drag,
 .drag button,
 .drag select,

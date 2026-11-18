@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "ele
 import { channels, type Api, type AppState, type Auth, type EntryEvent, type Reports, type TermData } from "@shared/types";
 
 const api: Api = {
+  platform: process.platform,
   state: () => ipcRenderer.invoke(channels.state),
   onState: (listener) => {
     const handler = (_event: IpcRendererEvent, state: AppState) => listener(state);

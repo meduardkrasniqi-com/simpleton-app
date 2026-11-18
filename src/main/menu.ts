@@ -4,19 +4,20 @@ import * as updates from "./updates";
 
 export function setMenu() {
   const isMac = process.platform === "darwin";
+  const settings: Electron.MenuItemConstructorOptions = {
+    label: "Settings…",
+    accelerator: "CmdOrCtrl+,",
+    click: (_item, window) => {
+      if (window instanceof BrowserWindow) window.webContents.send(channels.openSettings);
+    },
+  };
   const appMenu: Electron.MenuItemConstructorOptions = {
     label: app.name,
     submenu: [
       { role: "about" },
       { label: "Check for Updates…", click: () => updates.checkNow() },
       { type: "separator" },
-      {
-        label: "Settings…",
-        accelerator: "CmdOrCtrl+,",
-        click: (_item, window) => {
-          if (window instanceof BrowserWindow) window.webContents.send(channels.openSettings);
-        },
-      },
+      settings,
       { type: "separator" },
       { role: "services" },
       { type: "separator" },
@@ -40,7 +41,7 @@ export function setMenu() {
           },
         },
         { label: "Close Window", accelerator: "Shift+CmdOrCtrl+W", role: "close" },
-        ...(isMac ? [] : [{ type: "separator" as const }, { role: "quit" as const }]),
+        ...(isMac ? [] : [{ type: "separator" as const }, settings, { label: "Check for Updates…", click: () => updates.checkNow() }, { type: "separator" as const }, { role: "quit" as const }]),
       ],
     },
     { role: "editMenu" },

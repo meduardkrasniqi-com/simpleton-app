@@ -261,6 +261,7 @@ export type NewWorkspace = {
 };
 
 export type Api = {
+  platform: string;
   state: () => Promise<AppState>;
   onState: (listener: (state: AppState) => void) => () => void;
   addRepo: () => Promise<Repo | null>;

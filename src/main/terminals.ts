@@ -12,7 +12,7 @@ const exitListeners = new Set<(workspaceId: string, kind: TermKind, code: number
 
 const key = (workspaceId: string, kind: TermKind) => `${workspaceId}:${kind}`;
 
-export const shell = () => process.env.SHELL || "/bin/zsh";
+export const shell = () => process.env.SHELL || (process.platform === "darwin" ? "/bin/zsh" : "/bin/bash");
 
 export function onData(listener: (event: TermData) => void) {
   dataListeners.add(listener);

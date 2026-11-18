@@ -292,7 +292,7 @@ export function Reports({ data, onSeen }: { data: ReportsData; onSeen: () => voi
 
   return (
     <div className="flex h-full flex-col">
-      <div className="drag h-12 shrink-0" />
+      <div className="titlebar drag h-12 shrink-0" />
       <div className="min-h-0 flex-1 overflow-y-auto px-10 pb-10 pt-4">
         <div className="mx-auto max-w-[640px]">
           <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Reports</h1>

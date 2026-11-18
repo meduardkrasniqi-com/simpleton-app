@@ -1,0 +1,38 @@
+name: Linux release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x64
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y build-essential python3 libsecret-1-dev
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --linux --${{ matrix.arch }} --publish ${{ inputs.publish && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          retention-days: 7

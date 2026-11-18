@@ -15,6 +15,13 @@ import * as terminals from "./terminals";
 import * as store from "./store";
 import * as updates from "./updates";
 
+const isMac = process.platform === "darwin";
+
+const chrome = (): Electron.BrowserWindowConstructorOptions =>
+  isMac
+    ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 16, y: 16 }, vibrancy: "sidebar", visualEffectState: "followWindow", backgroundColor: "#00000000" }
+    : { autoHideMenuBar: true, backgroundColor: nativeTheme.shouldUseDarkColors ? "#161616" : "#ffffff", ...(app.isPackaged ? {} : { icon: join(__dirname, "../../build/icon.png") }) };
+
 function createWindow() {
   const window = new BrowserWindow({
     width: 1280,
@@ -23,11 +30,7 @@ function createWindow() {
     minHeight: 560,
     show: false,
     title: "Simpleton",
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 16 },
-    vibrancy: "sidebar",
-    visualEffectState: "followWindow",
-    backgroundColor: "#00000000",
+    ...chrome(),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
@@ -64,6 +67,17 @@ function focusWindow() {
 }
 
 app.setName(app.isPackaged ? "Simpleton" : "Simpleton Dev");
+
+if (!isMac && !app.requestSingleInstanceLock()) app.exit(0);
+
+app.on("second-instance", (_event, argv) => {
+  const url = auth.urlFrom(argv);
+  app.whenReady().then(() => {
+    if (url) auth.handleUrl(url);
+    focusWindow();
+  });
+});
+
 auth.registerScheme();
 images.registerScheme();
 
@@ -79,7 +93,7 @@ auth.subscribe((next, previous) => {
 });
 
 app.whenReady().then(async () => {
-  if (!app.isPackaged && process.platform === "darwin") {
+  if (!app.isPackaged && isMac) {
     app.dock?.setIcon(join(__dirname, "../../build/icon.png"));
   }
   images.handle();
@@ -110,5 +124,5 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (!isMac) app.quit();
 });

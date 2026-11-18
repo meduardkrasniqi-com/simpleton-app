@@ -19,7 +19,7 @@ export function Login({ auth }: { auth: Auth }) {
 
   return (
     <div className="flex h-full flex-col bg-surface">
-      <div className="drag h-12 shrink-0" />
+      <div className="titlebar drag h-12 shrink-0" />
       <div className="grid min-h-0 flex-1 place-items-center pb-12">
         <div className="flex w-[280px] flex-col items-center">
           <Mark size={44} />

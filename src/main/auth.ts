@@ -64,15 +64,23 @@ function expired(expiresAt: string) {
   return Number.isFinite(time) && time <= Date.now();
 }
 
+function encryption() {
+  if (safeStorage.isEncryptionAvailable()) return true;
+  if (process.platform !== "linux") return false;
+  safeStorage.setUsePlainTextEncryption(true);
+  return safeStorage.isEncryptionAvailable();
+}
+
 async function save(next: Session) {
   session = next;
-  if (!safeStorage.isEncryptionAvailable()) return;
+  if (!encryption()) return;
   const target = file();
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, safeStorage.encryptString(JSON.stringify(next)), { mode: 0o600 });
 }
 
 async function read() {
+  if (!encryption()) return null;
   try {
     const parsed = JSON.parse(safeStorage.decryptString(await readFile(file()))) as Session;
     return typeof parsed.token === "string" && isUser(parsed.user) ? parsed : null;
@@ -129,6 +137,10 @@ export async function login() {
 export function cancel() {
   pending = null;
   if (auth.status === "signing-in") set({ status: "signed-out", user: null });
+}
+
+export function urlFrom(argv: string[]) {
+  return argv.find((arg) => arg.startsWith(`${scheme}://`));
 }
 
 export async function handleUrl(raw: string) {

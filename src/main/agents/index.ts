@@ -17,7 +17,7 @@ import * as store from "../store";
 import { claude } from "./claude";
 import { codex } from "./codex";
 import type { Driver, Json, Pending, Update } from "./driver";
-import { binary, env } from "../env";
+import { binary, env, which } from "../env";
 
 const drivers: Record<Agent, Driver> = { "claude-code": claude, codex };
 
@@ -107,7 +107,16 @@ function touched(before: FileChange[] | null, after: FileChange[] | null) {
 
 const browsers = ["Google Chrome.app/Contents/MacOS/Google Chrome", "Chromium.app/Contents/MacOS/Chromium", "Brave Browser.app/Contents/MacOS/Brave Browser", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge"];
 
-const browser = () => browsers.flatMap((path) => [join("/Applications", path), join(homedir(), "Applications", path)]).find((path) => existsSync(path));
+const linuxBrowsers = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "brave-browser", "microsoft-edge"];
+
+async function browser() {
+  if (process.platform === "darwin") return browsers.flatMap((path) => [join("/Applications", path), join(homedir(), "Applications", path)]).find((path) => existsSync(path));
+  for (const name of linuxBrowsers) {
+    const found = await which(name);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 async function running(id: string) {
   const preview = store.get().previews[id];
@@ -148,7 +157,7 @@ export async function send(id: string, message: string) {
   const requested = workspace.mode || defaultModes[workspace.agent];
   const app = await running(id);
   shots.publish(id, app?.ready ? app.url : "");
-  const context = { app, shots: shots.dir(id), appFile: shots.appFile(id), browser: browser(), screenshots: store.get().screenshots };
+  const context = { app, shots: shots.dir(id), appFile: shots.appFile(id), browser: await browser(), screenshots: store.get().screenshots };
 
   let child: ChildProcess;
   try {

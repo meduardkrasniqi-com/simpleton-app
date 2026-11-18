@@ -6,7 +6,7 @@ import type { Agent } from "@shared/types";
 
 const home = homedir();
 
-const fallbackDirs = [join(home, ".local/bin"), join(home, ".claude/local"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+const fallbackDirs = [join(home, ".local/bin"), join(home, ".claude/local"), join(home, ".npm-global/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin", "/snap/bin"];
 
 const internal = [/^ELECTRON_RUN_AS_NODE$/, /^CLAUDECODE$/, /^CLAUDE_CODE_(?!USE_|SKIP_)/, /^CLAUDE_PID$/, /^CLAUDE_AGENT_SDK_/, /^CLAUDE_EFFORT$/];
 
@@ -15,7 +15,7 @@ const keys = [/^ANTHROPIC_API_KEY$/, /^ANTHROPIC_AUTH_TOKEN$/, /^OPENAI_API_KEY$
 let shellPath: Promise<string> | null = null;
 
 function loginShellPath() {
-  const shell = process.env.SHELL || "/bin/zsh";
+  const shell = process.env.SHELL || (process.platform === "darwin" ? "/bin/zsh" : "/bin/bash");
   return new Promise<string>((resolve) => {
     execFile(shell, ["-ilc", 'printf "__SIMPLETON__%s__SIMPLETON__" "$PATH"'], { timeout: 8000, env: { ...process.env, TERM: "dumb" } }, (_error, stdout) => {
       const match = /__SIMPLETON__(.*)__SIMPLETON__/.exec(stdout ?? "");
@@ -78,7 +78,7 @@ const names: Record<Agent, string> = { "claude-code": "claude", codex: "codex" }
 
 async function bundled(agent: Agent) {
   if (agent === "claude-code") return extensionBinaries("anthropic.claude-code-", "resources/native-binary/claude");
-  return ["/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"];
+  return process.platform === "darwin" ? ["/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"] : [];
 }
 
 export async function which(name: string) {

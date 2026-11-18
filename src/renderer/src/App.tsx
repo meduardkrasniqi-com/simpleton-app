@@ -39,7 +39,7 @@ export function App() {
           reports && <Reports data={reports} onSeen={markSeen} />
         ) : (
           <div className="flex h-full flex-col">
-            <div className="drag h-12 shrink-0" />
+            <div className="titlebar drag h-12 shrink-0" />
             <div className="min-h-0 flex-1">
               <Home state={state} onOpen={setActive} />
             </div>

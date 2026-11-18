@@ -132,7 +132,7 @@ export function Sidebar({ state, user, active, unread, onSelect, onNewTask }: { 
   return (
     <aside className="relative flex shrink-0 flex-col border-r border-ink/[0.06] bg-sidebar" style={{ width }}>
       <ResizeHandle edge="right" width={width} onResize={resize} onReset={reset} />
-      <div className="drag h-12 shrink-0" />
+      <div className="titlebar drag h-12 shrink-0" />
       <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2.5 pb-2.5">
         <Item active={active === "home"} onClick={() => onSelect("home")}>
           <House className="size-4 text-mute" />
