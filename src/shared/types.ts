@@ -229,6 +229,7 @@ export type AppState = {
   agent: Agent;
   defaults: Record<Agent, AgentSettings>;
   screenshots: boolean;
+  sound: boolean;
 };
 
 export type User = {
@@ -291,6 +292,7 @@ export type Api = {
   setDefaultAgent: (agent: Agent) => Promise<void>;
   setAgentDefaults: (agent: Agent, settings: AgentSettings) => Promise<void>;
   setScreenshots: (on: boolean) => Promise<void>;
+  setSound: (on: boolean) => Promise<void>;
   models: () => Promise<ModelCatalog>;
   configure: (id: string, settings: AgentSettings) => Promise<void>;
   transcript: (id: string) => Promise<Entry[]>;
@@ -309,6 +311,7 @@ export type Api = {
   runOptions: (id: string) => Promise<RunOption[]>;
   ports: (id: string) => Promise<OpenPort[]>;
   shots: (id: string) => Promise<string[]>;
+  deleteShot: (id: string, path: string) => Promise<void>;
   share: (id: string, port?: number) => Promise<void>;
   retarget: (id: string, port: number | null) => Promise<void>;
   unshare: (id: string) => Promise<void>;
@@ -351,6 +354,7 @@ export const channels = {
   setDefaultAgent: "settings:agent",
   setAgentDefaults: "settings:agent-defaults",
   setScreenshots: "settings:screenshots",
+  setSound: "settings:sound",
   models: "agent:models",
   configure: "agent:configure",
   transcript: "agent:transcript",
@@ -369,6 +373,7 @@ export const channels = {
   runOptions: "app:run-options",
   ports: "app:ports",
   shots: "app:shots",
+  deleteShot: "app:delete-shot",
   share: "share:start",
   retarget: "share:retarget",
   unshare: "share:stop",

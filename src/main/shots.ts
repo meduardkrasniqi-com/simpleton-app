@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { extname, join } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import * as store from "./store";
 
 const root = () => join(tmpdir(), "simpleton-shots");
@@ -44,6 +44,12 @@ export async function list(id: string) {
     .filter((file): file is { path: string; time: number } => file !== null)
     .sort((a, b) => b.time - a.time)
     .map((file) => file.path);
+}
+
+export async function remove(id: string, path: string) {
+  const file = resolve(path);
+  if (dirname(file) !== join(root(), id) || !types.has(extname(file).toLowerCase())) throw new Error("Not a screenshot of this workspace");
+  await rm(file, { force: true });
 }
 
 export async function forget(id: string) {

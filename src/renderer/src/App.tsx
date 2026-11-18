@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { WorkspaceView } from "@/components/WorkspaceView";
 import { useAppState } from "@/lib/useAppState";
 import { useAuth } from "@/lib/useAuth";
+import { useFinishChime } from "@/lib/chime";
 import { useReports } from "@/lib/useReports";
 
 export function App() {
@@ -17,6 +18,7 @@ export function App() {
   const [active, setActive] = useState("home");
   const [creating, setCreating] = useState<string | null>(null);
   const closeNewTask = useCallback(() => setCreating(null), []);
+  useFinishChime(state);
 
   useEffect(() => window.simpleton.onOpenSettings(() => setActive("settings")), []);
 

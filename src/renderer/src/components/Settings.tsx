@@ -1,7 +1,8 @@
-import { Camera, ChevronsUpDown, FolderGit2, Monitor, Moon, Sun } from "lucide-react";
+import { Bell, Camera, ChevronsUpDown, FolderGit2, Monitor, Moon, Sun } from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { Agent, AppState, Theme } from "@shared/types";
 import { useAgentChoices, type Choice } from "@/components/RunSettings";
+import { chime } from "@/lib/chime";
 import { useModels } from "@/lib/useModels";
 import { agents, cn } from "@/lib/utils";
 
@@ -207,12 +208,24 @@ function Agents({ state }: { state: AppState }) {
           ))}
         </div>
       </Section>
-      <Section title="Screenshots">
-        <div className="rounded-xl border border-line bg-raised">
+      <Section title="Behavior">
+        <div className="divide-y divide-line rounded-xl border border-line bg-raised">
           <label className="flex h-12 cursor-default items-center gap-3 px-4">
             <Camera className="size-[15px] shrink-0 text-mute" strokeWidth={1.75} />
             <span className="flex-1 text-[13.5px]">Screenshot visual changes</span>
             <Switch on={state.screenshots} label="Screenshot visual changes" onChange={(on) => window.simpleton.setScreenshots(on)} />
+          </label>
+          <label className="flex h-12 cursor-default items-center gap-3 px-4">
+            <Bell className="size-[15px] shrink-0 text-mute" strokeWidth={1.75} />
+            <span className="flex-1 text-[13.5px]">Play a sound when an agent finishes</span>
+            <Switch
+              on={state.sound}
+              label="Play a sound when an agent finishes"
+              onChange={(on) => {
+                if (on) chime();
+                window.simpleton.setSound(on);
+              }}
+            />
           </label>
         </div>
       </Section>

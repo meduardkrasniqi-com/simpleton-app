@@ -76,6 +76,9 @@ export function registerIpc() {
   ipcMain.handle(channels.setScreenshots, async (_event, on: boolean) => {
     await store.update((state) => ({ ...state, screenshots: on === true }));
   });
+  ipcMain.handle(channels.setSound, async (_event, on: boolean) => {
+    await store.update((state) => ({ ...state, sound: on === true }));
+  });
   ipcMain.handle(channels.models, () => models.catalog());
   ipcMain.handle(channels.configure, (_event, id: string, settings: AgentSettings) => agents.configure(id, settings));
   ipcMain.handle(channels.transcript, (_event, id: string) => agents.transcript(id));
@@ -95,6 +98,7 @@ export function registerIpc() {
   ipcMain.handle(channels.runOptions, (_event, id: string) => apps.options(id));
   ipcMain.handle(channels.ports, (_event, id: string) => apps.ports(id));
   ipcMain.handle(channels.shots, (_event, id: string) => shots.list(id));
+  ipcMain.handle(channels.deleteShot, (_event, id: string, path: string) => shots.remove(id, path));
   ipcMain.handle(channels.share, (_event, id: string, port?: number) => share.start(id, port));
   ipcMain.handle(channels.retarget, (_event, id: string, port: number | null) => share.retarget(id, port));
   ipcMain.handle(channels.unshare, (_event, id: string) => share.stop(id));

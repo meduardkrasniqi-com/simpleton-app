@@ -283,15 +283,32 @@ function Screenshots({ workspace }: { workspace: Workspace }) {
     };
   }, [workspace.id]);
 
+  const remove = (path: string) => {
+    setPaths((current) => current.filter((p) => p !== path));
+    if (open === path) setOpen(null);
+    window.simpleton.deleteShot(workspace.id, path).catch(() => undefined);
+  };
+
   if (!paths.length) return null;
 
   return (
     <Section id="screenshots" title="Screenshots" meta={<span className="text-[12px] tabular-nums text-mute">{paths.length}</span>}>
       <div className="grid max-h-56 grid-cols-3 gap-2 overflow-y-auto">
         {paths.map((path) => (
-          <button key={path} type="button" onClick={() => setOpen(path)} title={path.slice(path.lastIndexOf("/") + 1)} className="aspect-[16/10] overflow-hidden rounded-md border border-line bg-panel transition-[border-color] hover:border-ink/25">
-            <img src={imageUrl(path)} alt="" loading="lazy" className="size-full object-cover object-top" />
-          </button>
+          <div key={path} className="group/thumb relative">
+            <button type="button" onClick={() => setOpen(path)} title={path.slice(path.lastIndexOf("/") + 1)} className="block aspect-[16/10] w-full overflow-hidden rounded-md border border-line bg-panel transition-[border-color] hover:border-ink/25">
+              <img src={imageUrl(path)} alt="" loading="lazy" className="size-full object-cover object-top" />
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(path)}
+              aria-label="Delete screenshot"
+              title="Delete"
+              className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 focus-visible:opacity-100 group-hover/thumb:opacity-100"
+            >
+              <X className="size-3" strokeWidth={2.5} />
+            </button>
+          </div>
         ))}
       </div>
       {open && <Annotator path={open} items={paths} onNavigate={setOpen} onClose={() => setOpen(null)} />}
