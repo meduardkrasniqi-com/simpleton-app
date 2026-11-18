@@ -122,7 +122,8 @@ export function Sidebar({ state, user, active, unread, onSelect, onNewTask }: { 
   const { collapsed, toggle } = useCollapsed();
 
   const removeWorkspace = (w: Workspace) => {
-    if (merged(w) || confirm(`Delete ${displayName(w)}? The worktree and branch ${w.branch} will be removed.`)) window.simpleton.removeWorkspace(w.id);
+    const warning = w.direct ? `Delete ${displayName(w)}? Your files on ${w.branch} stay as they are.` : `Delete ${displayName(w)}? The worktree and branch ${w.branch} will be removed.`;
+    if (merged(w) || confirm(warning)) window.simpleton.removeWorkspace(w.id);
   };
 
   const removeRepo = (id: string, name: string) => {

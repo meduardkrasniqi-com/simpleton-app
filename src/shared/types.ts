@@ -10,6 +10,7 @@ export type Repo = {
   id: string;
   name: string;
   path: string;
+  worktrees?: boolean;
 };
 
 export type Workspace = {
@@ -34,6 +35,7 @@ export type Workspace = {
   setup?: Setup;
   queue?: Queued[];
   run?: RunMode;
+  direct?: boolean;
 };
 
 export type Queued = { id: string; text: string };
@@ -266,6 +268,7 @@ export type Api = {
   onState: (listener: (state: AppState) => void) => () => void;
   addRepo: () => Promise<Repo | null>;
   removeRepo: (id: string) => Promise<void>;
+  setRepoWorktrees: (id: string, on: boolean) => Promise<void>;
   createWorkspace: (input: NewWorkspace) => Promise<Workspace>;
   removeWorkspace: (id: string) => Promise<void>;
   retrySetup: (id: string) => Promise<void>;
@@ -326,6 +329,7 @@ export const channels = {
   stateChanged: "state:changed",
   addRepo: "repo:add",
   removeRepo: "repo:remove",
+  setRepoWorktrees: "repo:worktrees",
   createWorkspace: "workspace:create",
   removeWorkspace: "workspace:remove",
   retrySetup: "workspace:retry-setup",

@@ -400,6 +400,16 @@ function PrButton({ workspace, pending }: { workspace: Workspace; pending: Pendi
     );
   }
 
+  if (workspace.direct) {
+    const clean = !!pending && !pending.dirty && pending.ahead === 0;
+    return (
+      <button type="button" onClick={() => window.simpleton.send(workspace.id, `Commit any uncommitted changes and push them to ${workspace.branch}.`)} disabled={busy || clean} className={cn(primary, size)}>
+        <ArrowUpFromLine className="size-3.5" />
+        Push changes
+      </button>
+    );
+  }
+
   const open = !!workspace.prUrl && workspace.prState !== "closed";
 
   if (open && pending && !pending.dirty && pending.ahead === 0) {

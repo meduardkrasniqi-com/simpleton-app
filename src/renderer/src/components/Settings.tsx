@@ -1,4 +1,4 @@
-import { Camera, ChevronsUpDown, Monitor, Moon, Sun } from "lucide-react";
+import { Camera, ChevronsUpDown, FolderGit2, Monitor, Moon, Sun } from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { Agent, AppState, Theme } from "@shared/types";
 import { useAgentChoices, type Choice } from "@/components/RunSettings";
@@ -8,6 +8,7 @@ import { agents, cn } from "@/lib/utils";
 const tabs = [
   { id: "appearance", label: "Appearance" },
   { id: "agents", label: "Agents" },
+  { id: "repositories", label: "Repositories" },
 ] as const;
 
 type Tab = (typeof tabs)[number]["id"];
@@ -16,7 +17,8 @@ const tabKey = "simpleton.settings.tab";
 
 function readTab(): Tab {
   try {
-    return localStorage.getItem(tabKey) === "agents" ? "agents" : "appearance";
+    const saved = localStorage.getItem(tabKey);
+    return tabs.find((t) => t.id === saved)?.id ?? "appearance";
   } catch {
     return "appearance";
   }
@@ -58,11 +60,19 @@ export function Settings({ state }: { state: AppState }) {
             ))}
           </div>
           <div key={tab} role="tabpanel" className="animate-rise pt-7">
-            {tab === "appearance" ? <Appearance theme={state.theme} /> : <Agents state={state} />}
+            {tab === "appearance" ? <Appearance theme={state.theme} /> : tab === "agents" ? <Agents state={state} /> : <Repositories state={state} />}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: (on: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", on ? "bg-ink" : "bg-ink/[0.15]")}>
+      <span className={cn("absolute top-0.5 left-0.5 size-4 rounded-full bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-transform", on && "translate-x-4")} />
+    </button>
   );
 }
 
@@ -202,15 +212,7 @@ function Agents({ state }: { state: AppState }) {
           <label className="flex h-12 cursor-default items-center gap-3 px-4">
             <Camera className="size-[15px] shrink-0 text-mute" strokeWidth={1.75} />
             <span className="flex-1 text-[13.5px]">Screenshot visual changes</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={state.screenshots}
-              onClick={() => window.simpleton.setScreenshots(!state.screenshots)}
-              className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", state.screenshots ? "bg-ink" : "bg-ink/[0.15]")}
-            >
-              <span className={cn("absolute top-0.5 left-0.5 size-4 rounded-full bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-transform", state.screenshots && "translate-x-4")} />
-            </button>
+            <Switch on={state.screenshots} label="Screenshot visual changes" onChange={(on) => window.simpleton.setScreenshots(on)} />
           </label>
         </div>
       </Section>
@@ -218,5 +220,27 @@ function Agents({ state }: { state: AppState }) {
         <AgentDefaults key={agent} agent={agent} state={state} version={catalog?.versions[agent]} />
       ))}
     </>
+  );
+}
+
+function Repositories({ state }: { state: AppState }) {
+  if (!state.repos.length) return <p className="text-[13.5px] text-mute">No repositories yet</p>;
+  return (
+    <div className="divide-y divide-line rounded-xl border border-line bg-raised">
+      {state.repos.map((repo) => {
+        const on = repo.worktrees !== false;
+        return (
+          <div key={repo.id} className="flex h-14 items-center gap-3 px-4">
+            <FolderGit2 className="size-[15px] shrink-0 text-mute" strokeWidth={1.75} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px]">{repo.name}</span>
+              <span className="block truncate font-mono text-[11.5px] text-mute">{repo.path}</span>
+            </span>
+            <span className="shrink-0 text-[12.5px] text-mute">{on ? "New worktree per task" : "Current branch"}</span>
+            <Switch on={on} label={`New worktree per task in ${repo.name}`} onChange={(next) => window.simpleton.setRepoWorktrees(repo.id, next)} />
+          </div>
+        );
+      })}
+    </div>
   );
 }

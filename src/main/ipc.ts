@@ -37,6 +37,7 @@ export function registerIpc() {
   });
 
   ipcMain.handle(channels.removeRepo, (_event, id: string) => workspaces.removeRepo(id));
+  ipcMain.handle(channels.setRepoWorktrees, (_event, id: string, on: boolean) => workspaces.setRepoWorktrees(id, on === true));
   ipcMain.handle(channels.createWorkspace, (_event, input: NewWorkspace) => workspaces.createWorkspace(input));
   ipcMain.handle(channels.removeWorkspace, (_event, id: string) => workspaces.removeWorkspace(id));
   ipcMain.handle(channels.retrySetup, (_event, id: string) => workspaces.retrySetup(id));

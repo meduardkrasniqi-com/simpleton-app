@@ -15,17 +15,18 @@ function label(step: SetupStep, workspace: Workspace) {
 
 export function WorkspaceSetup({ workspace }: { workspace: Workspace }) {
   const setup = workspace.setup ?? { step: "agent" as const };
-  const current = order.indexOf(setup.step);
+  const steps = workspace.direct ? order.filter((step) => step === "agent") : order;
+  const current = steps.indexOf(setup.step);
   const failed = !!setup.error;
 
   const remove = () => {
-    if (confirm(`Delete ${workspace.branch}?`)) window.simpleton.removeWorkspace(workspace.id);
+    if (confirm(workspace.direct ? "Delete this workspace?" : `Delete ${workspace.branch}?`)) window.simpleton.removeWorkspace(workspace.id);
   };
 
   return (
     <div className="mt-6">
       <ol className="space-y-0.5">
-        {order.map((step, i) => {
+        {steps.map((step, i) => {
           const done = i < current;
           const active = i === current;
           return (

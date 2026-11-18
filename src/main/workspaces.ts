@@ -51,13 +51,18 @@ export async function removeRepo(id: string) {
   await store.update((s) => ({ ...s, repos: s.repos.filter((r) => r.id !== id) }));
 }
 
+export async function setRepoWorktrees(id: string, on: boolean) {
+  await store.update((s) => ({ ...s, repos: s.repos.map((r) => (r.id === id ? { ...r, worktrees: on ? undefined : false } : r)) }));
+}
+
 export async function createWorkspace(input: NewWorkspace) {
   const repo = store.get().repos.find((r) => r.id === input.repoId);
   if (!repo) throw new Error("Unknown repository");
+  const direct = repo.worktrees === false;
   const guess = naming.guess(input.task);
-  const branch = await uniqueBranch(repo, guess.slug);
+  const branch = direct ? await git.currentBranch(repo.path) : await uniqueBranch(repo, guess.slug);
   const id = randomUUID();
-  const path = join(worktreesDir(), repo.name, `${guess.slug}-${id.slice(0, 6)}`);
+  const path = direct ? repo.path : join(worktreesDir(), repo.name, `${guess.slug}-${id.slice(0, 6)}`);
   const workspace: Workspace = {
     id,
     repoId: repo.id,
@@ -68,8 +73,9 @@ export async function createWorkspace(input: NewWorkspace) {
     base: "",
     path,
     status: "setup",
-    setup: { step: "fetch" },
+    setup: { step: direct ? "agent" : "fetch" },
     createdAt: Date.now(),
+    direct: direct || undefined,
     model: input.model || undefined,
     effort: input.effort || undefined,
     mode: input.mode || undefined,
@@ -101,6 +107,7 @@ async function setup(id: string) {
     const workspace = find(id);
     const repo = workspace && store.get().repos.find((r) => r.id === workspace.repoId);
     if (!workspace || !repo) return;
+    if (workspace.direct) return await setupDirect(workspace, repo);
 
     await patch(id, { status: "setup", setup: { step } });
     const fresh = !existsSync(workspace.path);
@@ -140,6 +147,26 @@ async function setup(id: string) {
   }
 }
 
+async function setupDirect(workspace: Workspace, repo: Repo) {
+  const id = workspace.id;
+  try {
+    await patch(id, { status: "setup", setup: { step: "agent" } });
+    const base = workspace.base || (await git.git(repo.path, ["rev-parse", "HEAD"]));
+    if (!find(id)) return;
+    await patch(id, { base });
+    if (!workspace.summary) {
+      naming
+        .name(workspace.task)
+        .then((named) => (named.summary && find(id) ? patch(id, { title: named.title, summary: named.summary }) : undefined))
+        .catch(() => undefined);
+    }
+    apps.install(id).catch(() => undefined);
+    agents.send(id, workspace.task).catch(() => undefined);
+  } catch (error) {
+    if (find(id)) await patch(id, { setup: { step: "agent", error: reason(error) } });
+  }
+}
+
 export async function retrySetup(id: string) {
   const workspace = find(id);
   if (workspace?.status === "setup") await setup(id);
@@ -164,7 +191,7 @@ export async function removeWorkspace(id: string) {
   });
   await Promise.allSettled([agents.forget(id), apps.forget(id), share.stop(id), shots.forget(id)]);
   const repo = repos.find((r) => r.id === workspace.repoId);
-  if (repo) git.removeWorktree(repo.path, workspace.path, workspace.branch, join(trashDir(), randomUUID())).catch(() => undefined);
+  if (repo && !workspace.direct) git.removeWorktree(repo.path, workspace.path, workspace.branch, join(trashDir(), randomUUID())).catch(() => undefined);
   await saved;
 }
 

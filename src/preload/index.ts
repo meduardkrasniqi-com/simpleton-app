@@ -11,6 +11,7 @@ const api: Api = {
   },
   addRepo: () => ipcRenderer.invoke(channels.addRepo),
   removeRepo: (id) => ipcRenderer.invoke(channels.removeRepo, id),
+  setRepoWorktrees: (id, on) => ipcRenderer.invoke(channels.setRepoWorktrees, id, on),
   createWorkspace: (input) => ipcRenderer.invoke(channels.createWorkspace, input),
   removeWorkspace: (id) => ipcRenderer.invoke(channels.removeWorkspace, id),
   retrySetup: (id) => ipcRenderer.invoke(channels.retrySetup, id),
