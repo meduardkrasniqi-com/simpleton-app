@@ -12,15 +12,15 @@
   --color-panel: #fafafa;
   --color-stage: #f4f4f5;
   --color-sidebar: rgb(244 244 245 / 0.94);
-  --color-ready: #16a34a;
-  --color-busy: #f59e0b;
-  --color-ask: #2563eb;
+  --color-ready: #4f8a63;
+  --color-busy: #b98a3e;
+  --color-ask: #5a76b8;
   --color-done: #a3a3a3;
   --color-idle: #d4d4d4;
-  --color-merged: #8250df;
-  --color-plus: #15803d;
-  --color-minus: #dc2626;
-  --color-modified: #9a6700;
+  --color-merged: #8170b0;
+  --color-plus: #4f8a63;
+  --color-minus: #b85c58;
+  --color-modified: #9a7d45;
   --color-edited: #2f81f7;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
@@ -79,15 +79,15 @@
     --color-panel: #1b1b1b;
     --color-stage: #262626;
     --color-sidebar: rgb(26 26 26 / 0.96);
-    --color-ready: #22c55e;
-    --color-busy: #fbbf24;
-    --color-ask: #60a5fa;
+    --color-ready: #7fae8d;
+    --color-busy: #cfa968;
+    --color-ask: #8aa3d4;
     --color-done: #737373;
     --color-idle: #525252;
-    --color-merged: #a371f7;
-    --color-plus: #4ade80;
-    --color-minus: #f87171;
-    --color-modified: #e2c08d;
+    --color-merged: #a596cf;
+    --color-plus: #7fae8d;
+    --color-minus: #d08884;
+    --color-modified: #c4aa7c;
     --color-edited: #4c9df3;
   }
 }

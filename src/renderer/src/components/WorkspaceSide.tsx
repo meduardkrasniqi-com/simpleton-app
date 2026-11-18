@@ -2,7 +2,7 @@ import { Archive, ArrowUpFromLine, ArrowUpRight, Check, ChevronDown, ChevronRigh
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import type { FileChange, OpenPort, Pending, Preview, RunMode, RunOption, Share, Workspace } from "@shared/types";
 import { Annotator } from "@/components/Annotator";
-import { ChangeLetter, changeTone, FileIcon } from "@/components/FileIcon";
+import { ChangeIcon, FileIcon } from "@/components/FileIcon";
 import { FileTree } from "@/components/FileTree";
 import { Loader } from "@/components/Loader";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
@@ -384,10 +384,10 @@ function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: 
                       <li key={f.path}>
                         <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left font-mono text-[12px]", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
                           <FileIcon path={f.path} />
-                          <span className={cn("shrink-0 truncate", changeTone(f.status), f.status === "deleted" && "line-through")}>{f.path.slice(slash + 1)}</span>
+                          <span className={cn("shrink-0 truncate", f.status === "deleted" && "line-through")}>{f.path.slice(slash + 1)}</span>
                           <span className="min-w-0 flex-1 truncate text-[11.5px] text-mute">{slash > 0 ? f.path.slice(0, slash) : ""}</span>
                           <Stat added={f.added} removed={f.removed} className="text-[11.5px]" />
-                          <ChangeLetter status={f.status} />
+                          <ChangeIcon status={f.status} />
                         </button>
                       </li>
                     );

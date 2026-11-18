@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AppState, Preview, Share, User, Workspace } from "@shared/types";
 import { ResizeHandle, useWidth } from "@/components/Resizer";
 import { StatusIcon } from "@/components/ui";
-import { cn, displayName, subtitle } from "@/lib/utils";
+import { cn, displayName } from "@/lib/utils";
 
 const merged = (w: Workspace) => w.status === "merged" || w.prState === "merged";
 
@@ -72,12 +72,12 @@ function Indicators({ preview, share }: { preview?: Preview; share?: Share }) {
     <span className="flex shrink-0 items-center gap-1 group-hover/ws:invisible">
       {server && (
         <span title={preview.state === "running" ? `Dev server on localhost:${preview.port}` : "Dev server starting"}>
-          <AppWindow className={cn("size-3.5", preview.state === "running" ? "text-ready" : "animate-pulse text-mute")} />
+          <AppWindow className={cn("size-3.5 text-mute", preview.state !== "running" && "animate-pulse")} />
         </span>
       )}
       {share && (
         <span title={share.status === "live" ? `Shared at ${share.url.replace("https://", "")}` : share.status === "error" ? "Share link offline" : "Share link connecting"}>
-          <Link className={cn("size-3.5", share.status === "live" ? "text-ready" : share.status === "error" ? "text-minus" : "animate-pulse text-mute")} />
+          <Link className={cn("size-3.5", share.status === "error" ? "text-minus" : "text-mute", share.status === "connecting" && "animate-pulse")} />
         </span>
       )}
     </span>
@@ -179,17 +179,14 @@ export function Sidebar({ state, user, active, unread, onSelect, onNewTask }: { 
                           onClick={() => onSelect(w.id)}
                           aria-current={active === w.id ? "page" : undefined}
                           title={`${w.branch}\n${w.task}`}
-                          className={cn("flex w-full items-start gap-2.5 rounded-md px-2 py-[7px] text-left", active === w.id ? "bg-ink/[0.07]" : "hover:bg-ink/[0.04]")}
+                          className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left", active === w.id ? "bg-ink/[0.07]" : "hover:bg-ink/[0.04]")}
                         >
-                          <span className="grid h-[18px] shrink-0 place-items-center">
+                          <span className="grid size-4 shrink-0 place-items-center">
                             <StatusIcon workspace={w} />
                           </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-2 group-hover/ws:pr-6">
-                              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] leading-[18px]", active === w.id && "font-medium", merged(w) && "text-mute")}>{displayName(w)}</span>
-                              <Indicators preview={state.previews[w.id]} share={state.shares[w.id]} />
-                            </span>
-                            <span className="mt-px block truncate text-[12px] leading-4 text-mute">{subtitle(w)}</span>
+                          <span className="flex min-w-0 flex-1 items-center gap-2 group-hover/ws:pr-6">
+                            <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", active === w.id && "font-medium", merged(w) && "text-mute")}>{displayName(w)}</span>
+                            <Indicators preview={state.previews[w.id]} share={state.shares[w.id]} />
                           </span>
                         </button>
                         <button type="button" onClick={() => removeWorkspace(w)} aria-label={`${merged(w) ? "Archive" : "Delete"} ${displayName(w)}`} title={merged(w) ? "Archive" : "Delete"} className={cn("absolute right-1 top-1 hidden size-6 place-items-center rounded text-mute hover:bg-ink/[0.06] group-hover/ws:grid", merged(w) ? "hover:text-ink" : "hover:text-minus")}>

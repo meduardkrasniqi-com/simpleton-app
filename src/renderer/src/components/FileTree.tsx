@@ -1,7 +1,7 @@
 import { ChevronRight, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ChangeStatus, FileChange } from "@shared/types";
-import { ChangeLetter, changeTone, FileIcon, FolderIcon } from "@/components/FileIcon";
+import { ChangeIcon, FileIcon, FolderIcon } from "@/components/FileIcon";
 import { Highlight, match } from "@/components/Fuzzy";
 import { cn } from "@/lib/utils";
 
@@ -109,8 +109,8 @@ export function FileTree({ id, files, changes, active, onOpen }: { id: string; f
         <button type="button" onClick={() => onOpen(path)} title={path} className={cn(row, active === path ? "bg-ink/[0.06] text-ink" : "text-soft hover:bg-ink/[0.04] hover:text-ink")} style={indent(depth)}>
           <span className="size-3.5 shrink-0" />
           <FileIcon path={path} />
-          <span className={cn("min-w-0 flex-1 truncate", changeTone(status))}>{path.slice(path.lastIndexOf("/") + 1)}</span>
-          <ChangeLetter status={status} />
+          <span className={cn("min-w-0 flex-1 truncate", status === "deleted" && "line-through")}>{path.slice(path.lastIndexOf("/") + 1)}</span>
+          <ChangeIcon status={status} />
         </button>
       </li>
     );
@@ -121,11 +121,11 @@ export function FileTree({ id, files, changes, active, onOpen }: { id: string; f
     const status = changed.dirs.get(node.path);
     return (
       <li key={node.path}>
-        <button type="button" onClick={() => toggle(node.path)} aria-expanded={open} className={cn(row, "text-ink hover:bg-ink/[0.04]")} style={indent(depth)}>
+        <button type="button" onClick={() => toggle(node.path)} aria-expanded={open} className={cn(row, "text-soft hover:bg-ink/[0.04] hover:text-ink")} style={indent(depth)}>
           <ChevronRight className={cn("size-3.5 shrink-0 text-mute transition-transform", open && "rotate-90")} />
           <FolderIcon open={open} />
-          <span className={cn("min-w-0 flex-1 truncate", changeTone(status))}>{node.name}</span>
-          {status && <span className={cn("mr-1 size-[6px] shrink-0 rounded-full bg-current", changeTone(status))} />}
+          <span className="min-w-0 flex-1 truncate">{node.name}</span>
+          {status && <span className="mr-1 size-[5px] shrink-0 rounded-full bg-mute/60" />}
         </button>
         {open && <ul>{children(node, depth + 1)}</ul>}
       </li>
@@ -164,7 +164,7 @@ export function FileTree({ id, files, changes, active, onOpen }: { id: string; f
                 <li key={path}>
                   <button type="button" onClick={() => onOpen(path)} title={path} className={cn(row, "gap-2 px-2", active === path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
                     <FileIcon path={path} />
-                    <span className={cn("shrink-0", changeTone(changed.files.get(path)) || "text-ink")}>
+                    <span className="shrink-0 text-ink">
                       <Highlight text={path.slice(slash + 1)} offset={slash + 1} positions={positions} />
                     </span>
                     {slash > 0 && (
