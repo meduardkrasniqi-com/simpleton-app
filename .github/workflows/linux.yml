@@ -33,6 +33,7 @@ jobs:
       - run: npx electron-builder --linux --${{ matrix.arch }} --publish ${{ inputs.publish && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          EP_GH_IGNORE_TIME: "true"
       - if: inputs.publish
         run: |
           version=$(node -p "require('./package.json').version")
