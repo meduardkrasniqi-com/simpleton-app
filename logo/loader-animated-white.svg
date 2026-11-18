@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1024" height="1024">
+  <style>
+    .t,.f{fill:none;stroke:#ffffff;stroke-width:2.4;stroke-linecap:round}
+    .t{opacity:.2}
+    .f{stroke-dasharray:.35 1.4;animation:flow 1.6s cubic-bezier(.45,0,.55,1) infinite }
+    .n{opacity:.3;transform-box:fill-box;transform-origin:center;animation:node 1.6s ease-in-out infinite }
+    @keyframes flow{from{stroke-dashoffset:.35}to{stroke-dashoffset:-1}}
+    @keyframes node{0%,100%{opacity:.3;transform:scale(.7)}25%{opacity:1;transform:scale(1.15)}55%{opacity:.3;transform:scale(.7)}}
+  </style>
+  <path class="t" d="M8 6.5v11M16 8.5c0 4.5-8 3.5-8 9"/>
+  <path class="f" d="M8 6.5v11" pathLength="1" style="animation-delay:0ms"/>
+  <path class="f" d="M16 8.5c0 4.5-8 3.5-8 9" pathLength="1" style="animation-delay:0ms"/>
+  <circle class="n" cx="8" cy="6.5" r="2.7" fill="#ff8a3d" style="animation-delay:0ms"/>
+  <circle class="n" cx="16" cy="8.5" r="2.7" fill="#6b7bff" style="animation-delay:160ms"/>
+  <circle class="n" cx="8" cy="17.5" r="2.7" fill="#f0508a" style="animation-delay:720ms"/>
+</svg>
