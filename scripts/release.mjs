@@ -96,7 +96,7 @@ const body = JSON.stringify({
 });
 execSync(`gh api -X PUT ${path} --input -`, { input: body, stdio: ["pipe", "ignore", "inherit"] });
 try {
-  execFileSync("gh", ["workflow", "run", "linux.yml", "-R", "meduardkrasniqi-com/simpleton-app", "--ref", "main"], { stdio: "inherit" });
+  execFileSync("gh", ["workflow", "run", "linux.yml", "-R", "simpleton-io/simpleton-app", "--ref", "main"], { stdio: "inherit" });
 } catch {
   console.log("Couldn't start the Linux build. Run the Linux release workflow on GitHub.");
 }
