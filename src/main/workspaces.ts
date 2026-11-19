@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises
 import { existsSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { app } from "electron";
-import type { NewWorkspace, Repo, SetupStep, Workspace } from "@shared/types";
+import type { Arrangement, Group, NewWorkspace, Repo, SetupStep, Workspace } from "@shared/types";
 import * as activity from "./activity";
 import * as agents from "./agents";
 import * as apps from "./apps";
@@ -48,7 +48,48 @@ export async function addRepo(path: string) {
 export async function removeRepo(id: string) {
   const owned = store.get().workspaces.filter((w) => w.repoId === id);
   for (const w of owned) await removeWorkspace(w.id);
-  await store.update((s) => ({ ...s, repos: s.repos.filter((r) => r.id !== id) }));
+  await store.update((s) => ({ ...s, repos: s.repos.filter((r) => r.id !== id), groups: s.groups.filter((g) => g.repoId !== id) }));
+}
+
+export async function createGroup(repoId: string, name: string) {
+  const label = String(name ?? "").trim();
+  if (!label || !store.get().repos.some((r) => r.id === repoId)) return null;
+  const group: Group = { id: randomUUID(), repoId, name: label };
+  await store.update((s) => ({ ...s, groups: [...s.groups, group] }));
+  return group;
+}
+
+export async function renameGroup(id: string, name: string) {
+  const label = String(name ?? "").trim();
+  if (!label) return;
+  await store.update((s) => ({ ...s, groups: s.groups.map((g) => (g.id === id ? { ...g, name: label } : g)) }));
+}
+
+export async function removeGroup(id: string) {
+  await store.update((s) => ({
+    ...s,
+    groups: s.groups.filter((g) => g.id !== id),
+    workspaces: s.workspaces.map((w) => (w.groupId === id ? { ...w, groupId: undefined } : w)),
+  }));
+}
+
+function reorder<T extends { id: string }>(items: T[], ids: string[] | undefined) {
+  if (!Array.isArray(ids)) return items;
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  return [...items].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+}
+
+export async function arrange(arrangement: Arrangement) {
+  await store.update((s) => {
+    const placed = new Map((arrangement.workspaces ?? []).map((w) => [w.id, w.groupId]));
+    const workspaces = reorder(s.workspaces, arrangement.workspaces?.map((w) => w.id)).map((w) => {
+      if (!placed.has(w.id)) return w;
+      const groupId = placed.get(w.id);
+      const valid = groupId && s.groups.some((g) => g.id === groupId && g.repoId === w.repoId);
+      return { ...w, groupId: valid ? groupId : undefined };
+    });
+    return { ...s, repos: reorder(s.repos, arrangement.repos), groups: reorder(s.groups, arrangement.groups), workspaces };
+  });
 }
 
 export async function setRepoWorktrees(id: string, on: boolean) {
@@ -79,6 +120,7 @@ export async function createWorkspace(input: NewWorkspace) {
     model: input.model || undefined,
     effort: input.effort || undefined,
     mode: input.mode || undefined,
+    groupId: input.groupId && store.get().groups.some((g) => g.id === input.groupId && g.repoId === repo.id) ? input.groupId : undefined,
   };
   await store.update((s) => ({ ...s, workspaces: [...s.workspaces, workspace] }));
   activity.record(workspace, { kind: "task", text: activity.clip(workspace.task, 600) }).catch(() => undefined);

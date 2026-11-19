@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { channels, type Agent, type AgentSettings, type NewWorkspace, type Reply, type ReportKind, type RunMode, type TermKind, type Theme } from "@shared/types";
+import { channels, type Agent, type Arrangement, type AgentSettings, type NewWorkspace, type Reply, type ReportKind, type RunMode, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as attachments from "./attachments";
@@ -39,6 +39,10 @@ export function registerIpc() {
   ipcMain.handle(channels.removeRepo, (_event, id: string) => workspaces.removeRepo(id));
   ipcMain.handle(channels.setRepoWorktrees, (_event, id: string, on: boolean) => workspaces.setRepoWorktrees(id, on === true));
   ipcMain.handle(channels.createWorkspace, (_event, input: NewWorkspace) => workspaces.createWorkspace(input));
+  ipcMain.handle(channels.createGroup, (_event, repoId: string, name: string) => workspaces.createGroup(repoId, name));
+  ipcMain.handle(channels.renameGroup, (_event, id: string, name: string) => workspaces.renameGroup(id, name));
+  ipcMain.handle(channels.removeGroup, (_event, id: string) => workspaces.removeGroup(id));
+  ipcMain.handle(channels.arrange, (_event, arrangement: Arrangement) => workspaces.arrange(arrangement));
   ipcMain.handle(channels.removeWorkspace, (_event, id: string) => workspaces.removeWorkspace(id));
   ipcMain.handle(channels.retrySetup, (_event, id: string) => workspaces.retrySetup(id));
   ipcMain.handle(channels.changes, (_event, id: string) => workspaces.changes(id));

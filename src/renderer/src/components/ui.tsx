@@ -1,7 +1,7 @@
 import { useId } from "react";
 import type { Workspace } from "@shared/types";
 import { Loader } from "@/components/Loader";
-import { cn, statusIcon } from "@/lib/utils";
+import { clock, cn, statusIcon } from "@/lib/utils";
 
 const button = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[8px] font-medium transition-colors active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40";
 
@@ -47,4 +47,14 @@ export function StatusIcon({ workspace, className }: { workspace: Workspace; cla
   const { icon: Icon, className: tone, label } = statusIcon(workspace);
   if (Icon === "loader") return <Loader aria-label={label} className={cn(tone, className)} />;
   return <Icon aria-label={label} className={cn("size-3.5 shrink-0", tone, className)} />;
+}
+
+export function Stamp({ at, className }: { at?: number; className?: string }) {
+  if (!at) return null;
+  const date = new Date(at);
+  return (
+    <time dateTime={date.toISOString()} title={date.toLocaleString()} className={cn("shrink-0 tabular-nums", className)}>
+      {clock(at)}
+    </time>
+  );
 }
