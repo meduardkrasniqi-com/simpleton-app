@@ -96,3 +96,7 @@ Stopping a share deletes its name, so the old link stops working for good.
 3. One-click PR with an agent-written description
 4. Per-workspace dev servers and live links through the relay
 5. Signed DMG, auto-update, Homebrew tap
+
+## License
+
+[MIT](LICENSE)

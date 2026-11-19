@@ -3,6 +3,7 @@
   "productName": "Simpleton",
   "version": "0.7.1",
   "private": true,
+  "license": "MIT",
   "description": "Run coding agents in parallel, share live links, open PRs in one click.",
   "main": "./out/main/index.js",
   "scripts": {
