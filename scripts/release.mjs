@@ -7,12 +7,19 @@ const read = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe"
 
 const { version, productName } = JSON.parse(readFileSync("package.json", "utf8"));
 const tag = `v${version}`;
-const repo = "simpleton-io/releases";
+const repo = "simpleton-io/simpleton";
+const legacy = "simpleton-io/releases";
 const archs = ["arm64", "x64"];
 const file = (arch, ext) => `${productName}-${version}-${arch}.${ext}`;
 const hash = (name, algorithm, encoding) => createHash(algorithm).update(readFileSync(`dist/${name}`)).digest(encoding);
 
 delete process.env.ELECTRON_RUN_AS_NODE;
+
+const head = read("git rev-parse HEAD");
+if (!read(`git branch -r --contains ${head}`)) {
+  console.error("Push this commit to GitHub first, so the release tag can point at it.");
+  process.exit(1);
+}
 
 if (!process.argv.includes("--skip-build")) {
   run("rm -rf dist && npm run build");
@@ -50,14 +57,19 @@ const stable = archs.map((arch) => {
   return name;
 });
 const assets = [...entries, ...entries.map((name) => `${name}.blockmap`), ...stable, "latest-mac.yml"].map((name) => `dist/${name}`);
-let exists = true;
-try {
-  read(`gh release view ${tag} -R ${repo} --json tagName`);
-} catch {
-  exists = false;
+function publish(target, extra = []) {
+  let exists = true;
+  try {
+    read(`gh release view ${tag} -R ${target} --json tagName`);
+  } catch {
+    exists = false;
+  }
+  if (exists) execFileSync("gh", ["release", "upload", tag, ...assets, "-R", target, "--clobber"], { stdio: "inherit" });
+  else execFileSync("gh", ["release", "create", tag, ...assets, "-R", target, "--title", version, "--notes", "", "--latest", ...extra], { stdio: "inherit" });
 }
-if (exists) execFileSync("gh", ["release", "upload", tag, ...assets, "-R", repo, "--clobber"], { stdio: "inherit" });
-else execFileSync("gh", ["release", "create", tag, ...assets, "-R", repo, "--title", version, "--notes", "", "--latest"], { stdio: "inherit" });
+
+publish(repo, ["--target", head]);
+publish(legacy);
 
 const cask = `cask "simpleton" do
   arch arm: "arm64", intel: "x64"
@@ -96,7 +108,7 @@ const body = JSON.stringify({
 });
 execSync(`gh api -X PUT ${path} --input -`, { input: body, stdio: ["pipe", "ignore", "inherit"] });
 try {
-  execFileSync("gh", ["workflow", "run", "linux.yml", "-R", "simpleton-io/simpleton-app", "--ref", "main"], { stdio: "inherit" });
+  execFileSync("gh", ["workflow", "run", "linux.yml", "-R", repo, "--ref", "main"], { stdio: "inherit" });
 } catch {
   console.log("Couldn't start the Linux build. Run the Linux release workflow on GitHub.");
 }

@@ -40,5 +40,5 @@ artifactName: ${productName}-${version}-${arch}.${ext}
 publish:
   provider: github
   owner: simpleton-io
-  repo: releases
+  repo: simpleton
   releaseType: release

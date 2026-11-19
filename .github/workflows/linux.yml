@@ -7,6 +7,9 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -32,14 +35,20 @@ jobs:
       - run: npm run build
       - run: npx electron-builder --linux --${{ matrix.arch }} --publish ${{ inputs.publish && 'always' || 'never' }}
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EP_GH_IGNORE_TIME: "true"
       - if: inputs.publish
         run: |
           version=$(node -p "require('./package.json').version")
           cp dist/*.deb "dist/Simpleton-${{ matrix.deb }}.deb"
           cp dist/*.AppImage "dist/Simpleton-${{ matrix.appimage }}.AppImage"
-          gh release upload "v$version" "dist/Simpleton-${{ matrix.deb }}.deb" "dist/Simpleton-${{ matrix.appimage }}.AppImage" -R simpleton-io/releases --clobber
+          gh release upload "v$version" "dist/Simpleton-${{ matrix.deb }}.deb" "dist/Simpleton-${{ matrix.appimage }}.AppImage" -R ${{ github.repository }} --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: inputs.publish
+        run: |
+          version=$(node -p "require('./package.json').version")
+          gh release upload "v$version" dist/*.deb dist/*.AppImage dist/latest-linux*.yml -R simpleton-io/releases --clobber
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
       - uses: actions/upload-artifact@v4

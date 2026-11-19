@@ -44,9 +44,9 @@
 brew install --cask simpleton-io/tap/simpleton
 ```
 
-Or download the app for [Apple silicon](https://github.com/simpleton-io/releases/releases/latest/download/Simpleton-arm64.dmg) or [Intel](https://github.com/simpleton-io/releases/releases/latest/download/Simpleton-x64.dmg).
+Or download the app for [Apple silicon](https://github.com/simpleton-io/simpleton/releases/latest/download/Simpleton-arm64.dmg) or [Intel](https://github.com/simpleton-io/simpleton/releases/latest/download/Simpleton-x64.dmg).
 
-**Linux**: [.deb x64](https://github.com/simpleton-io/releases/releases/latest/download/Simpleton-amd64.deb), [.deb arm64](https://github.com/simpleton-io/releases/releases/latest/download/Simpleton-arm64.deb), [AppImage x64](https://github.com/simpleton-io/releases/releases/latest/download/Simpleton-x86_64.AppImage), [AppImage arm64](https://github.com/simpleton-io/releases/releases/latest/download/Simpleton-arm64.AppImage).
+**Linux**: [.deb x64](https://github.com/simpleton-io/simpleton/releases/latest/download/Simpleton-amd64.deb), [.deb arm64](https://github.com/simpleton-io/simpleton/releases/latest/download/Simpleton-arm64.deb), [AppImage x64](https://github.com/simpleton-io/simpleton/releases/latest/download/Simpleton-x86_64.AppImage), [AppImage arm64](https://github.com/simpleton-io/simpleton/releases/latest/download/Simpleton-arm64.AppImage).
 
 The app updates itself.
 
@@ -66,8 +66,8 @@ Optional: install the [GitHub CLI](https://cli.github.com) and run `gh auth logi
 Requires Node 22 and git.
 
 ```bash
-git clone https://github.com/simpleton-io/simpleton-app.git
-cd simpleton-app
+git clone https://github.com/simpleton-io/simpleton.git
+cd simpleton
 npm install
 SIMPLETON_SKIP_AUTH=1 npm run dev
 ```
