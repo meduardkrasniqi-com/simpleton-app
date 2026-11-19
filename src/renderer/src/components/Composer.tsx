@@ -7,7 +7,7 @@ import { RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { useModels } from "@/lib/useModels";
 import { agents, cn } from "@/lib/utils";
 
-export function Composer({ state, repoId, tall, onCreated }: { state: AppState; repoId?: string; tall?: boolean; onCreated: (workspace: Workspace) => void }) {
+export function Composer({ state, repoId, groupId, tall, onCreated }: { state: AppState; repoId?: string; groupId?: string; tall?: boolean; onCreated: (workspace: Workspace) => void }) {
   const { repos } = state;
   const [task, setTask] = useState("");
   const [repo, setRepo] = useState(repoId ?? repos[0]?.id ?? "");
@@ -45,7 +45,7 @@ export function Composer({ state, repoId, tall, onCreated }: { state: AppState; 
     setBusy(true);
     setError(null);
     try {
-      const workspace = await window.simpleton.createWorkspace({ repoId: repo, task: withAttachments(task, attachments.paths), agent, ...settings });
+      const workspace = await window.simpleton.createWorkspace({ repoId: repo, task: withAttachments(task, attachments.paths), agent, ...settings, groupId: repo === repoId ? groupId : undefined });
       setTask("");
       attachments.clear();
       onCreated(workspace);

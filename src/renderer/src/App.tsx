@@ -16,7 +16,7 @@ export function App() {
   const auth = useAuth();
   const { reports, unread, markSeen } = useReports();
   const [active, setActive] = useState("home");
-  const [creating, setCreating] = useState<string | null>(null);
+  const [creating, setCreating] = useState<{ repoId: string; groupId?: string } | null>(null);
   const closeNewTask = useCallback(() => setCreating(null), []);
   useFinishChime(state);
 
@@ -31,7 +31,7 @@ export function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar state={state} user={auth.user} active={page} unread={unread} onSelect={setActive} onNewTask={setCreating} />
+      <Sidebar state={state} user={auth.user} active={page} unread={unread} onSelect={setActive} onNewTask={(repoId, groupId) => setCreating({ repoId, groupId })} />
       <main className="min-w-0 flex-1 bg-surface">
         {workspace ? (
           <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} install={state.installs[workspace.id]} share={state.shares[workspace.id]} />
@@ -51,7 +51,8 @@ export function App() {
       {creating && (
         <NewTask
           state={state}
-          repoId={creating}
+          repoId={creating.repoId}
+          groupId={creating.groupId}
           onClose={closeNewTask}
           onCreated={(w) => {
             setCreating(null);

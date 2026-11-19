@@ -13,6 +13,12 @@ export type Repo = {
   worktrees?: boolean;
 };
 
+export type Group = {
+  id: string;
+  repoId: string;
+  name: string;
+};
+
 export type Workspace = {
   id: string;
   repoId: string;
@@ -36,6 +42,7 @@ export type Workspace = {
   queue?: Queued[];
   run?: RunMode;
   direct?: boolean;
+  groupId?: string;
 };
 
 export type Queued = { id: string; text: string };
@@ -120,7 +127,7 @@ export type Question = {
 
 export type Reply = { kind: "allow"; always?: boolean } | { kind: "deny"; message?: string } | { kind: "answer"; answers: Record<string, string> } | { kind: "plan"; mode: string };
 
-export type Entry =
+export type Entry = (
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "assistant"; text: string; parent?: string }
   | { id: string; kind: "thinking"; text: string; parent?: string }
@@ -129,7 +136,8 @@ export type Entry =
   | { id: string; kind: "plan"; plan: string; mode?: string; state: "pending" | "approved" | "rejected" | "cancelled" }
   | { id: string; kind: "error"; text: string }
   | { id: string; kind: "notice"; text: string }
-  | { id: string; kind: "turn"; ms: number; files: FileChange[] };
+  | { id: string; kind: "turn"; ms: number; files: FileChange[] }
+) & { at?: number };
 
 export type EntryEvent = {
   workspaceId: string;
@@ -221,6 +229,7 @@ export type Reports = { days: Record<string, number>; reports: Report[] };
 
 export type AppState = {
   repos: Repo[];
+  groups: Group[];
   workspaces: Workspace[];
   previews: Record<string, Preview>;
   installs: Record<string, InstallState>;
@@ -261,6 +270,13 @@ export type NewWorkspace = {
   model?: string;
   effort?: string;
   mode?: string;
+  groupId?: string;
+};
+
+export type Arrangement = {
+  repos?: string[];
+  groups?: string[];
+  workspaces?: { id: string; groupId?: string }[];
 };
 
 export type Api = {
@@ -271,6 +287,10 @@ export type Api = {
   removeRepo: (id: string) => Promise<void>;
   setRepoWorktrees: (id: string, on: boolean) => Promise<void>;
   createWorkspace: (input: NewWorkspace) => Promise<Workspace>;
+  createGroup: (repoId: string, name: string) => Promise<Group | null>;
+  renameGroup: (id: string, name: string) => Promise<void>;
+  removeGroup: (id: string) => Promise<void>;
+  arrange: (arrangement: Arrangement) => Promise<void>;
   removeWorkspace: (id: string) => Promise<void>;
   retrySetup: (id: string) => Promise<void>;
   changes: (id: string) => Promise<FileChange[]>;
@@ -334,6 +354,10 @@ export const channels = {
   removeRepo: "repo:remove",
   setRepoWorktrees: "repo:worktrees",
   createWorkspace: "workspace:create",
+  createGroup: "group:create",
+  renameGroup: "group:rename",
+  removeGroup: "group:remove",
+  arrange: "sidebar:arrange",
   removeWorkspace: "workspace:remove",
   retrySetup: "workspace:retry-setup",
   changes: "workspace:changes",

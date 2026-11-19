@@ -53,3 +53,11 @@ export function duration(ms: number) {
   if (m < 60) return `${m}m ${s % 60}s`;
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
+
+export function clock(at: number) {
+  const date = new Date(at);
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (date.toDateString() === new Date().toDateString()) return time;
+  const day = date.toLocaleDateString(undefined, date.getFullYear() === new Date().getFullYear() ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+  return `${day}, ${time}`;
+}

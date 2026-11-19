@@ -7,7 +7,7 @@ type Listener = (state: AppState) => void;
 
 const file = () => join(app.getPath("userData"), "state.json");
 
-const empty = (): AppState => ({ repos: [], workspaces: [], previews: {}, installs: {}, shares: {}, theme: "system", agent: "claude-code", defaults: { "claude-code": {}, codex: {} }, screenshots: true, sound: true });
+const empty = (): AppState => ({ repos: [], groups: [], workspaces: [], previews: {}, installs: {}, shares: {}, theme: "system", agent: "claude-code", defaults: { "claude-code": {}, codex: {} }, screenshots: true, sound: true });
 
 let state: AppState = empty();
 const listeners = new Set<Listener>();
@@ -18,7 +18,7 @@ export async function load() {
     const shares: Record<string, Share> = {};
     for (const [id, share] of Object.entries(parsed.shares ?? {})) shares[id] = { name: share.name, url: share.url, status: "connecting", port: share.port };
     const base = empty();
-    state = { ...base, repos: parsed.repos ?? [], workspaces: parsed.workspaces ?? [], shares, theme: parsed.theme ?? base.theme, agent: parsed.agent ?? base.agent, defaults: { ...base.defaults, ...parsed.defaults }, screenshots: parsed.screenshots ?? base.screenshots, sound: parsed.sound ?? base.sound };
+    state = { ...base, repos: parsed.repos ?? [], groups: parsed.groups ?? [], workspaces: parsed.workspaces ?? [], shares, theme: parsed.theme ?? base.theme, agent: parsed.agent ?? base.agent, defaults: { ...base.defaults, ...parsed.defaults }, screenshots: parsed.screenshots ?? base.screenshots, sound: parsed.sound ?? base.sound };
   } catch {
     state = empty();
   }

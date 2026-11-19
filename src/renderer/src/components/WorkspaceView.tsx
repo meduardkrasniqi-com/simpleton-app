@@ -13,7 +13,7 @@ import { RunSettings, useAgentChoices } from "@/components/RunSettings";
 import { WorkspaceSetup } from "@/components/WorkspaceSetup";
 import { WorkspaceSide } from "@/components/WorkspaceSide";
 import { Terminal as TerminalView } from "@/components/Terminal";
-import { ghost, Stat, StatusIcon } from "@/components/ui";
+import { ghost, Stamp, Stat, StatusIcon } from "@/components/ui";
 import { FileLinksContext, resolver } from "@/lib/fileLinks";
 import { useTranscript } from "@/lib/useTranscript";
 import { agents, cn, duration } from "@/lib/utils";
@@ -172,7 +172,7 @@ function Thinking({ entry }: { entry: Extract<Entry, { kind: "thinking" }> }) {
 const shown = 2;
 
 function Turn({ entry, grouped, onOpen }: { entry: Extract<Entry, { kind: "turn" }>; grouped?: boolean; onOpen: (path: string) => void }) {
-  if (grouped && !entry.files.length) return null;
+  if (grouped && !entry.files.length && !entry.at) return null;
   const first = entry.files.slice(0, shown);
   const rest = entry.files.slice(shown);
   const added = entry.files.reduce((n, f) => n + f.added, 0);
@@ -185,6 +185,7 @@ function Turn({ entry, grouped, onOpen }: { entry: Extract<Entry, { kind: "turn"
           {duration(entry.ms)}
         </span>
       )}
+      <Stamp at={entry.at} />
       {entry.files.length > 0 && (
         <span className="flex min-w-0 items-center gap-1.5">
           <FilePen className="size-3.5 shrink-0" />
@@ -266,6 +267,7 @@ function Row({ entry, agent, grouped, onOpen, onReply }: { entry: Entry; agent: 
             </p>
           )}
           <AttachmentList paths={message.paths} className="justify-end" />
+          <Stamp at={entry.at} className="-mt-1 pr-1 text-[11.5px] text-mute" />
         </div>
       );
     }

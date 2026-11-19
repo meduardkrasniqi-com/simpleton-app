@@ -77,7 +77,7 @@ function save(id: string) {
 function upsert(id: string, entry: Entry) {
   const entries = transcripts.get(id) ?? [];
   const index = entries.findIndex((e) => e.id === entry.id);
-  const next = index === -1 ? entry : ({ ...entries[index], ...entry } as Entry);
+  const next = index === -1 ? { ...entry, at: entry.at ?? Date.now() } : ({ ...entries[index], ...entry } as Entry);
   if (index === -1) entries.push(next);
   else entries[index] = next;
   transcripts.set(id, entries);
