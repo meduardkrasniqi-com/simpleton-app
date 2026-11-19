@@ -8,7 +8,6 @@ const read = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe"
 const { version, productName } = JSON.parse(readFileSync("package.json", "utf8"));
 const tag = `v${version}`;
 const repo = "simpleton-io/simpleton";
-const legacy = "simpleton-io/releases";
 const archs = ["arm64", "x64"];
 const file = (arch, ext) => `${productName}-${version}-${arch}.${ext}`;
 const hash = (name, algorithm, encoding) => createHash(algorithm).update(readFileSync(`dist/${name}`)).digest(encoding);
@@ -57,19 +56,14 @@ const stable = archs.map((arch) => {
   return name;
 });
 const assets = [...entries, ...entries.map((name) => `${name}.blockmap`), ...stable, "latest-mac.yml"].map((name) => `dist/${name}`);
-function publish(target, extra = []) {
-  let exists = true;
-  try {
-    read(`gh release view ${tag} -R ${target} --json tagName`);
-  } catch {
-    exists = false;
-  }
-  if (exists) execFileSync("gh", ["release", "upload", tag, ...assets, "-R", target, "--clobber"], { stdio: "inherit" });
-  else execFileSync("gh", ["release", "create", tag, ...assets, "-R", target, "--title", version, "--notes", "", "--latest", ...extra], { stdio: "inherit" });
+let exists = true;
+try {
+  read(`gh release view ${tag} -R ${repo} --json tagName`);
+} catch {
+  exists = false;
 }
-
-publish(repo, ["--target", head]);
-publish(legacy);
+if (exists) execFileSync("gh", ["release", "upload", tag, ...assets, "-R", repo, "--clobber"], { stdio: "inherit" });
+else execFileSync("gh", ["release", "create", tag, ...assets, "-R", repo, "--title", version, "--notes", "", "--latest", "--target", head], { stdio: "inherit" });
 
 const cask = `cask "simpleton" do
   arch arm: "arm64", intel: "x64"

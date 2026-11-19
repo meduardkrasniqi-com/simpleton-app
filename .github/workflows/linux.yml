@@ -45,12 +45,6 @@ jobs:
           gh release upload "v$version" "dist/Simpleton-${{ matrix.deb }}.deb" "dist/Simpleton-${{ matrix.appimage }}.AppImage" -R ${{ github.repository }} --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - if: inputs.publish
-        run: |
-          version=$(node -p "require('./package.json').version")
-          gh release upload "v$version" dist/*.deb dist/*.AppImage dist/latest-linux*.yml -R simpleton-io/releases --clobber
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
