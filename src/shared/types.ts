@@ -146,6 +146,10 @@ export type EntryEvent = {
 
 export type ChangeStatus = "added" | "modified" | "deleted" | "untracked";
 
+export type FileTarget = { dir?: boolean; exists?: boolean };
+
+export type FileAction = "preview" | "quicklook" | "open" | "reveal" | "copy" | "copy-path" | "copy-relative-path" | "trash";
+
 export type Pending = { dirty: boolean; ahead: number };
 
 export type FileChange = {
@@ -303,6 +307,7 @@ export type Api = {
   fileInfo: (id: string, path: string) => Promise<{ size: number; modified: number }>;
   openFile: (id: string, path: string) => Promise<void>;
   revealFile: (id: string, path: string) => Promise<void>;
+  fileMenu: (id: string, path: string, target: FileTarget) => Promise<FileAction | null>;
   openImage: (path: string) => Promise<void>;
   readImage: (path: string) => Promise<Uint8Array>;
   copyImage: (bytes: Uint8Array) => Promise<void>;
@@ -373,6 +378,7 @@ export const channels = {
   fileInfo: "workspace:file-info",
   openFile: "workspace:open-file",
   revealFile: "workspace:reveal-file",
+  fileMenu: "workspace:file-menu",
   openImage: "image:open",
   readImage: "image:read",
   copyImage: "image:copy",

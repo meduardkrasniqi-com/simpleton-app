@@ -1,8 +1,10 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { extname } from "node:path";
+import { basename, extname } from "node:path";
 import { Readable } from "node:stream";
-import { protocol, shell } from "electron";
+import { pathToFileURL } from "node:url";
+import { clipboard, ClipboardItem, dialog, Menu, protocol, shell, type BrowserWindow } from "electron";
+import type { FileAction, FileTarget } from "@shared/types";
 import { inside } from "./workspaces";
 
 export const scheme = "simpleton-file";
@@ -75,4 +77,60 @@ export async function open(id: string, path: string) {
 
 export function reveal(id: string, path: string) {
   shell.showItemInFolder(inside(id, path));
+}
+
+async function copy(full: string) {
+  if (process.platform !== "darwin") return clipboard.writeText(full);
+  await clipboard.write([new ClipboardItem({ 'electron application/osclipboard;format="public.file-url"': new Blob([pathToFileURL(full).href]), "text/plain": full })]);
+}
+
+async function trash(window: BrowserWindow | null, full: string) {
+  const name = basename(full);
+  const options = {
+    type: "warning" as const,
+    message: `Move ${name} to the Trash?`,
+    buttons: ["Move to Trash", "Cancel"],
+    defaultId: 0,
+    cancelId: 1,
+  };
+  const { response } = window ? await dialog.showMessageBox(window, options) : await dialog.showMessageBox(options);
+  if (response !== 0) return false;
+  await shell.trashItem(full);
+  return true;
+}
+
+const fail = (title: string) => (error: unknown) => {
+  dialog.showErrorBox(title, error instanceof Error ? error.message : String(error));
+  return null;
+};
+
+export function menu(window: BrowserWindow | null, id: string, path: string, target: FileTarget) {
+  const full = inside(id, path);
+  const mac = process.platform === "darwin";
+  const exists = target.exists !== false;
+  return new Promise<FileAction | null>((done) => {
+    let clicked = false;
+    const act = (work: () => Promise<FileAction | null>) => () => {
+      clicked = true;
+      done(work().catch(fail("Something went wrong")));
+    };
+    const run = (action: FileAction, work?: () => unknown) => act(async () => (await work?.(), action));
+    const items: Electron.MenuItemConstructorOptions[] = [
+      ...(target.dir
+        ? []
+        : [
+            { label: "Open Preview", click: run("preview") },
+            ...(mac ? [{ label: "Quick Look", enabled: exists, click: run("quicklook", () => window?.previewFile(full)) }] : []),
+            { label: "Open in Default App", enabled: exists, click: run("open", () => open(id, path)) },
+          ]),
+      { label: mac ? "Reveal in Finder" : "Show in Folder", enabled: exists, click: run("reveal", () => reveal(id, path)) },
+      { type: "separator" },
+      { label: "Copy", enabled: exists, click: run("copy", () => copy(full)) },
+      { label: "Copy Path", click: run("copy-path", () => clipboard.writeText(full)) },
+      { label: "Copy Relative Path", click: run("copy-relative-path", () => clipboard.writeText(path)) },
+      { type: "separator" },
+      { label: mac ? "Move to Trash" : "Delete", enabled: exists, click: act(() => trash(window, full).then((gone) => (gone ? "trash" : null), fail("Could not delete"))) },
+    ];
+    Menu.buildFromTemplate(items).popup({ window: window ?? undefined, callback: () => setTimeout(() => !clicked && done(null), 100) });
+  });
 }

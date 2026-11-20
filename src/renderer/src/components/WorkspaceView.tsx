@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Bot, Brain, ChevronRight, CircleAlert, Clock, CornerDownRight, FilePen, FileText, Globe, ListTodo, PanelRight, Pencil, Search, Square, Terminal, Wrench, X, type LucideIcon } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { modes, type Entry, type FileChange, type InstallState, type Pending, type Preview, type Reply, type RunMode, type Share, type TermKind, type Workspace } from "@shared/types";
+import { modes, type Entry, type FileChange, type FileTarget, type InstallState, type Pending, type Preview, type Reply, type RunMode, type Share, type TermKind, type Workspace } from "@shared/types";
 import { AttachButton, AttachmentList, splitAttachments, useAttachments, withAttachments } from "@/components/Attachments";
 import { FileIcon } from "@/components/FileIcon";
 import { FileSearch } from "@/components/FileSearch";
@@ -634,6 +634,7 @@ export function WorkspaceView({ workspace, preview, install, share }: { workspac
   };
 
   const [tree, setTree] = useState<string[]>([]);
+  const [touched, setTouched] = useState(0);
   useEffect(() => {
     let alive = true;
     const load = () =>
@@ -648,7 +649,20 @@ export function WorkspaceView({ workspace, preview, install, share }: { workspac
       clearTimeout(timer);
       window.removeEventListener("focus", load);
     };
-  }, [workspace.id, settled]);
+  }, [workspace.id, settled, touched]);
+
+  const fileMenu = async (path: string, target: FileTarget) => {
+    const action = await window.simpleton.fileMenu(workspace.id, path, target).catch(() => null);
+    if (action === "preview") openFile(path);
+    if (action !== "trash") return;
+    const gone = (f: string) => f === path || f.startsWith(`${path}/`);
+    setTabs((t) => {
+      const files = t.files.filter((f) => !gone(f));
+      return { files, active: gone(t.active) ? "chat" : t.active };
+    });
+    refresh();
+    setTouched((n) => n + 1);
+  };
 
   const openRef = useRef(openFile);
   openRef.current = openFile;
@@ -799,6 +813,7 @@ export function WorkspaceView({ workspace, preview, install, share }: { workspac
           activeFile={tabs.active}
           terminalOpen={panel.open && panel.tab === "shell"}
           onOpenFile={openFile}
+          onFileMenu={fileMenu}
           onRun={runApp}
           onToggleTerminal={toggleTerminal}
           onCollapse={() => setSide(false)}

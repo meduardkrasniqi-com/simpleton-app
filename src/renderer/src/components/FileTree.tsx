@@ -1,6 +1,6 @@
 import { ChevronRight, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ChangeStatus, FileChange } from "@shared/types";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import type { ChangeStatus, FileChange, FileTarget } from "@shared/types";
 import { ChangeIcon, FileIcon, FolderIcon } from "@/components/FileIcon";
 import { Highlight, match } from "@/components/Fuzzy";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ function statuses(changes: FileChange[]) {
   return { files, dirs };
 }
 
-export function FileTree({ id, files, changes, active, onOpen }: { id: string; files: string[]; changes: FileChange[]; active: string; onOpen: (path: string) => void }) {
+export function FileTree({ id, files, changes, active, onOpen, onMenu }: { id: string; files: string[]; changes: FileChange[]; active: string; onOpen: (path: string) => void; onMenu: (path: string, target: FileTarget) => void }) {
   const [query, setQuery] = useState("");
   const [expanded, setExpandedState] = useState<Set<string>>(() => expandedState.get(id) ?? new Set());
   const root = useMemo(() => build(files), [files]);
@@ -102,11 +102,16 @@ export function FileTree({ id, files, changes, active, onOpen }: { id: string; f
     return scored.slice(0, limit).map(({ path, positions }) => ({ path, positions: new Set(positions) }));
   }, [files, query]);
 
+  const menu = (path: string, target: FileTarget) => (e: MouseEvent) => {
+    e.preventDefault();
+    onMenu(path, target);
+  };
+
   const file = (path: string, depth: number) => {
     const status = changed.files.get(path);
     return (
       <li key={path}>
-        <button type="button" onClick={() => onOpen(path)} title={path} className={cn(row, active === path ? "bg-ink/[0.06] text-ink" : "text-soft hover:bg-ink/[0.04] hover:text-ink")} style={indent(depth)}>
+        <button type="button" onClick={() => onOpen(path)} onContextMenu={menu(path, { exists: status !== "deleted" })} title={path} className={cn(row, active === path ? "bg-ink/[0.06] text-ink" : "text-soft hover:bg-ink/[0.04] hover:text-ink")} style={indent(depth)}>
           <span className="size-3.5 shrink-0" />
           <FileIcon path={path} />
           <span className={cn("min-w-0 flex-1 truncate", status === "deleted" && "line-through")}>{path.slice(path.lastIndexOf("/") + 1)}</span>
@@ -121,7 +126,7 @@ export function FileTree({ id, files, changes, active, onOpen }: { id: string; f
     const status = changed.dirs.get(node.path);
     return (
       <li key={node.path}>
-        <button type="button" onClick={() => toggle(node.path)} aria-expanded={open} className={cn(row, "text-soft hover:bg-ink/[0.04] hover:text-ink")} style={indent(depth)}>
+        <button type="button" onClick={() => toggle(node.path)} onContextMenu={menu(node.path, { dir: true })} aria-expanded={open} className={cn(row, "text-soft hover:bg-ink/[0.04] hover:text-ink")} style={indent(depth)}>
           <ChevronRight className={cn("size-3.5 shrink-0 text-mute transition-transform", open && "rotate-90")} />
           <FolderIcon open={open} />
           <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -162,7 +167,7 @@ export function FileTree({ id, files, changes, active, onOpen }: { id: string; f
               const slash = path.lastIndexOf("/");
               return (
                 <li key={path}>
-                  <button type="button" onClick={() => onOpen(path)} title={path} className={cn(row, "gap-2 px-2", active === path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
+                  <button type="button" onClick={() => onOpen(path)} onContextMenu={menu(path, { exists: changed.files.get(path) !== "deleted" })} title={path} className={cn(row, "gap-2 px-2", active === path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
                     <FileIcon path={path} />
                     <span className="shrink-0 text-ink">
                       <Highlight text={path.slice(slash + 1)} offset={slash + 1} positions={positions} />
