@@ -1,6 +1,6 @@
 import { Archive, ArrowUpFromLine, ArrowUpRight, Check, ChevronDown, ChevronRight, Copy, GitMerge, GitPullRequest, Link, PanelRight, Play, Square, SquareTerminal, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
-import type { FileChange, OpenPort, Pending, Preview, RunMode, RunOption, Share, Workspace } from "@shared/types";
+import type { FileChange, FileTarget, OpenPort, Pending, Preview, RunMode, RunOption, Share, Workspace } from "@shared/types";
 import { Annotator } from "@/components/Annotator";
 import { ChangeIcon, FileIcon } from "@/components/FileIcon";
 import { FileTree } from "@/components/FileTree";
@@ -333,7 +333,7 @@ function readFilesTab(): FilesTab {
   }
 }
 
-function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: Workspace; files: FileChange[] | null; tree: string[]; activeFile: string; onOpenFile: (path: string) => void }) {
+function Files({ workspace, files, tree, activeFile, onOpenFile, onFileMenu }: { workspace: Workspace; files: FileChange[] | null; tree: string[]; activeFile: string; onOpenFile: (path: string) => void; onFileMenu: (path: string, target: FileTarget) => void }) {
   const key = "simpleton.section.changes";
   const [open, setOpen] = useState(() => stored(key, true));
   const [tab, setTabState] = useState(readFilesTab);
@@ -382,7 +382,14 @@ function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: 
                     const slash = f.path.lastIndexOf("/");
                     return (
                       <li key={f.path}>
-                        <button type="button" onClick={() => onOpenFile(f.path)} title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left font-mono text-[12px]", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
+                        <button
+                          type="button"
+                          onClick={() => onOpenFile(f.path)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            onFileMenu(f.path, { exists: f.status !== "deleted" });
+                          }}
+                          title={f.path} className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left font-mono text-[12px]", activeFile === f.path ? "bg-ink/[0.06]" : "hover:bg-ink/[0.04]")}>
                           <FileIcon path={f.path} />
                           <span className={cn("shrink-0 truncate", f.status === "deleted" && "line-through")}>{f.path.slice(slash + 1)}</span>
                           <span className="min-w-0 flex-1 truncate text-[11.5px] text-mute">{slash > 0 ? f.path.slice(0, slash) : ""}</span>
@@ -397,7 +404,7 @@ function Files({ workspace, files, tree, activeFile, onOpenFile }: { workspace: 
               {files && files.length === 0 && <p className="px-2 text-[12.5px] text-mute">No changes yet</p>}
             </>
           )}
-          {tab === "all" && <FileTree id={workspace.id} files={tree} changes={files ?? []} active={activeFile} onOpen={onOpenFile} />}
+          {tab === "all" && <FileTree id={workspace.id} files={tree} changes={files ?? []} active={activeFile} onOpen={onOpenFile} onMenu={onFileMenu} />}
         </div>
       )}
     </section>
@@ -581,6 +588,7 @@ export function WorkspaceSide({
   activeFile,
   terminalOpen,
   onOpenFile,
+  onFileMenu,
   onRun,
   onToggleTerminal,
   onCollapse,
@@ -594,6 +602,7 @@ export function WorkspaceSide({
   activeFile: string;
   terminalOpen: boolean;
   onOpenFile: (path: string) => void;
+  onFileMenu: (path: string, target: FileTarget) => void;
   onRun: (mode?: RunMode) => void;
   onToggleTerminal: () => void;
   onCollapse: () => void;
@@ -638,7 +647,7 @@ export function WorkspaceSide({
 
       <Screenshots key={workspace.id} workspace={workspace} />
 
-      <Files workspace={workspace} files={files} tree={tree} activeFile={activeFile} onOpenFile={onOpenFile} />
+      <Files workspace={workspace} files={files} tree={tree} activeFile={activeFile} onOpenFile={onOpenFile} onFileMenu={onFileMenu} />
     </aside>
   );
 }

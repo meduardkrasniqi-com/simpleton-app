@@ -29,6 +29,7 @@ const api: Api = {
   fileInfo: (id, path) => ipcRenderer.invoke(channels.fileInfo, id, path),
   openFile: (id, path) => ipcRenderer.invoke(channels.openFile, id, path),
   revealFile: (id, path) => ipcRenderer.invoke(channels.revealFile, id, path),
+  fileMenu: (id, path, target) => ipcRenderer.invoke(channels.fileMenu, id, path, target),
   openImage: (path) => ipcRenderer.invoke(channels.openImage, path),
   readImage: (path) => ipcRenderer.invoke(channels.readImage, path),
   copyImage: (bytes) => ipcRenderer.invoke(channels.copyImage, bytes),

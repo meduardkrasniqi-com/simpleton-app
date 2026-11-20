@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { channels, type Agent, type Arrangement, type AgentSettings, type NewWorkspace, type Reply, type ReportKind, type RunMode, type TermKind, type Theme } from "@shared/types";
+import { channels, type Agent, type Arrangement, type AgentSettings, type FileTarget, type NewWorkspace, type Reply, type ReportKind, type RunMode, type TermKind, type Theme } from "@shared/types";
 import * as agents from "./agents";
 import * as apps from "./apps";
 import * as attachments from "./attachments";
@@ -56,6 +56,7 @@ export function registerIpc() {
   ipcMain.handle(channels.fileInfo, (_event, id: string, path: string) => files.info(id, path));
   ipcMain.handle(channels.openFile, (_event, id: string, path: string) => files.open(id, path));
   ipcMain.handle(channels.revealFile, (_event, id: string, path: string) => files.reveal(id, path));
+  ipcMain.handle(channels.fileMenu, (event, id: string, path: string, target: FileTarget) => files.menu(BrowserWindow.fromWebContents(event.sender), id, path, target ?? {}));
   ipcMain.handle(channels.openImage, (_event, path: string) => images.open(path));
   ipcMain.handle(channels.readImage, (_event, path: string) => images.read(path));
   ipcMain.handle(channels.copyImage, (_event, bytes: Uint8Array) => images.copy(bytes));

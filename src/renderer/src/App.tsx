@@ -10,6 +10,7 @@ import { useAppState } from "@/lib/useAppState";
 import { useAuth } from "@/lib/useAuth";
 import { useFinishChime } from "@/lib/chime";
 import { useReports } from "@/lib/useReports";
+import { useUnread } from "@/lib/useUnread";
 
 export function App() {
   const state = useAppState();
@@ -19,6 +20,7 @@ export function App() {
   const [creating, setCreating] = useState<{ repoId: string; groupId?: string } | null>(null);
   const closeNewTask = useCallback(() => setCreating(null), []);
   useFinishChime(state);
+  const unreadChats = useUnread(state, active);
 
   useEffect(() => window.simpleton.onOpenSettings(() => setActive("settings")), []);
 
@@ -31,7 +33,7 @@ export function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar state={state} user={auth.user} active={page} unread={unread} onSelect={setActive} onNewTask={(repoId, groupId) => setCreating({ repoId, groupId })} />
+      <Sidebar state={state} user={auth.user} active={page} unread={unread} unreadChats={unreadChats} onSelect={setActive} onNewTask={(repoId, groupId) => setCreating({ repoId, groupId })} />
       <main className="min-w-0 flex-1 bg-surface">
         {workspace ? (
           <WorkspaceView key={workspace.id} workspace={workspace} preview={state.previews[workspace.id]} install={state.installs[workspace.id]} share={state.shares[workspace.id]} />

@@ -167,7 +167,7 @@ function move<T extends { id: string }>(items: T[], id: string, target: string |
   return rest;
 }
 
-export function Sidebar({ state, user, active, unread, onSelect, onNewTask }: { state: AppState; user: User; active: string; unread: boolean; onSelect: (id: string) => void; onNewTask: (repoId: string, groupId?: string) => void }) {
+export function Sidebar({ state, user, active, unread, unreadChats, onSelect, onNewTask }: { state: AppState; user: User; active: string; unread: boolean; unreadChats: Set<string>; onSelect: (id: string) => void; onNewTask: (repoId: string, groupId?: string) => void }) {
   const { width, resize, reset } = useWidth(
     "simpleton.width.left",
     () => 260,
@@ -275,7 +275,7 @@ export function Sidebar({ state, user, active, unread, onSelect, onNewTask }: { 
           <StatusIcon workspace={w} />
         </span>
         <span className="flex min-w-0 flex-1 items-center gap-2 group-hover/ws:pr-6">
-          <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", active === w.id && "font-medium", merged(w) && "text-mute")}>{displayName(w)}</span>
+          <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", active === w.id && "font-medium", unreadChats.has(w.id) && "font-semibold text-ink", merged(w) && "text-mute")}>{displayName(w)}</span>
           <Indicators preview={state.previews[w.id]} share={state.shares[w.id]} />
         </span>
       </button>
