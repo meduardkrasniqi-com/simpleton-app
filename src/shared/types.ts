@@ -300,6 +300,9 @@ export type Api = {
   readText: (id: string, path: string) => Promise<string>;
   writeText: (id: string, path: string, text: string) => Promise<void>;
   repoFiles: (repoId: string) => Promise<string[]>;
+  fileInfo: (id: string, path: string) => Promise<{ size: number; modified: number }>;
+  openFile: (id: string, path: string) => Promise<void>;
+  revealFile: (id: string, path: string) => Promise<void>;
   openImage: (path: string) => Promise<void>;
   readImage: (path: string) => Promise<Uint8Array>;
   copyImage: (bytes: Uint8Array) => Promise<void>;
@@ -367,6 +370,9 @@ export const channels = {
   readText: "workspace:read-text",
   writeText: "workspace:write-text",
   repoFiles: "repo:files",
+  fileInfo: "workspace:file-info",
+  openFile: "workspace:open-file",
+  revealFile: "workspace:reveal-file",
   openImage: "image:open",
   readImage: "image:read",
   copyImage: "image:copy",

@@ -273,7 +273,7 @@ export async function pending(id: string) {
 
 const maxEditable = 2 * 1024 * 1024;
 
-function inside(id: string, path: string) {
+export function inside(id: string, path: string) {
   const workspace = store.get().workspaces.find((w) => w.id === id);
   if (!workspace || workspace.status === "setup") throw new Error("Unknown workspace");
   const full = resolve(workspace.path, path);

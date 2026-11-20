@@ -1,9 +1,12 @@
-import { createContext, memo, useContext, useMemo, type ReactNode } from "react";
+import { createContext, memo, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { embeddedImages, Gallery, imagePath, mentionedImages, Shot } from "@/components/Shot";
+import { embeddedImages, Gallery, imagePath, imageUrl, mentionedImages, Shot } from "@/components/Shot";
 import { useFileLinks } from "@/lib/fileLinks";
 import { languageForFence, tokenStyle, useTokens } from "@/lib/highlight";
+import { cn } from "@/lib/utils";
 
 type Node = { type: string; value?: string; url?: string; children?: Node[] };
 
@@ -138,16 +141,54 @@ const components: Components = {
   td: ({ children }) => <td className="border-b border-line px-3 py-1.5 align-top [tr:last-child_&]:border-b-0">{children}</td>,
 };
 
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+function DocImage({ src, alt, width, height }: { src?: string; alt?: string; width?: string | number; height?: string | number }) {
+  const links = useFileLinks();
+  if (!src) return null;
+  const path = imagePath(src, links?.root);
+  const url = path ? imageUrl(path) : /^https:/i.test(src) ? src : null;
+  if (!url) return alt ? <span className="text-mute">{alt}</span> : null;
+  return <img src={url} alt={alt ?? ""} width={width} height={height} className="inline-block h-auto max-w-full align-middle" />;
+}
+
+const aligned = (align: unknown): CSSProperties | undefined => (align === "left" || align === "center" || align === "right" ? { textAlign: align } : undefined);
+
+const pagePlugins = [rehypeRaw, rehypeSanitize];
+
+const documentComponents: Components = {
+  ...components,
+  img: ({ src, alt, width, height }) => <DocImage src={typeof src === "string" ? src : undefined} alt={alt} width={width} height={height} />,
+  h1: ({ children, node }) => (
+    <h1 style={aligned(node?.properties.align)} className="mb-4 mt-8 border-b border-line pb-2 text-[26px] font-semibold leading-tight first:mt-0">
+      {children}
+    </h1>
+  ),
+  h2: ({ children, node }) => (
+    <h2 style={aligned(node?.properties.align)} className="mb-3 mt-8 border-b border-line pb-1.5 text-[20px] font-semibold leading-snug first:mt-0">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => <h3 className="mb-2 mt-6 text-[16.5px] font-semibold first:mt-0">{children}</h3>,
+  h4: ({ children }) => <h4 className="mb-2 mt-5 text-[14.5px] font-semibold first:mt-0">{children}</h4>,
+  h5: ({ children }) => <h5 className="mb-2 mt-5 text-[13.5px] font-semibold first:mt-0">{children}</h5>,
+  h6: ({ children }) => <h6 className="mb-2 mt-5 text-[13.5px] font-semibold text-soft first:mt-0">{children}</h6>,
+  p: ({ children, node }) => (
+    <p style={aligned(node?.properties.align)} className="my-4 first:mt-0 last:mb-0 empty:hidden">
+      {children}
+    </p>
+  ),
+  div: ({ children, node }) => <div style={aligned(node?.properties.align)}>{children}</div>,
+};
+
+export const Markdown = memo(function Markdown({ text, page }: { text: string; page?: boolean }) {
   const links = useFileLinks();
   const plugins = useMemo(() => (links ? [remarkGfm, fileLinks(links.resolve)] : [remarkGfm]), [links]);
-  const extra = useMemo(() => mentionedImages(text, links?.root), [text, links?.root]);
-  const pictures = useMemo(() => [...embeddedImages(text, links?.root), ...extra.map((path) => ({ path }))], [text, links?.root, extra]);
+  const extra = useMemo(() => (page ? [] : mentionedImages(text, links?.root)), [text, links?.root, page]);
+  const pictures = useMemo(() => (page ? [] : [...embeddedImages(text, links?.root), ...extra.map((path) => ({ path }))]), [text, links?.root, extra, page]);
   const grouped = pictures.length > 1;
   return (
-    <div className="selectable text-[14px] leading-[1.6]">
+    <div className={cn("selectable", page ? "text-[14.5px] leading-[1.7]" : "text-[14px] leading-[1.6]")}>
       <Grouped.Provider value={grouped}>
-        <ReactMarkdown remarkPlugins={plugins} components={components}>
+        <ReactMarkdown remarkPlugins={plugins} rehypePlugins={page ? pagePlugins : undefined} components={page ? documentComponents : components}>
           {text}
         </ReactMarkdown>
       </Grouped.Provider>

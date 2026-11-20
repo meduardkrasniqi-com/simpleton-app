@@ -1,7 +1,8 @@
 import { join } from "node:path";
-import { app, BrowserWindow, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, nativeTheme, protocol, shell } from "electron";
 import * as agents from "./agents";
 import * as auth from "./auth";
+import * as files from "./files";
 import * as images from "./images";
 import { registerIpc } from "./ipc";
 import { setMenu } from "./menu";
@@ -79,7 +80,7 @@ app.on("second-instance", (_event, argv) => {
 });
 
 auth.registerScheme();
-images.registerScheme();
+protocol.registerSchemesAsPrivileged([images.privilege, files.privilege]);
 
 app.on("open-url", (event, url) => {
   event.preventDefault();
@@ -97,6 +98,7 @@ app.whenReady().then(async () => {
     app.dock?.setIcon(join(__dirname, "../../build/icon.png"));
   }
   images.handle();
+  files.handle();
   nativeTheme.themeSource = (await store.load()).theme;
   await agents.recover();
   await workspaces.recoverSetups();

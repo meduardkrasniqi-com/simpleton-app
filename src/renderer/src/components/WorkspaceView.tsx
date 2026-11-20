@@ -702,12 +702,12 @@ export function WorkspaceView({ workspace, preview, install, share }: { workspac
           </div>
         </header>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {tabs.active !== "chat" && (
-            <div className="min-h-0 flex-1">
-              <FileViewer key={tabs.active} workspaceId={workspace.id} path={tabs.active} version={settled} />
-            </div>
-          )}
           <FileLinksContext.Provider value={links}>
+            {tabs.active !== "chat" && (
+              <div className="min-h-0 flex-1">
+                <FileViewer key={tabs.active} workspaceId={workspace.id} path={tabs.active} version={settled} />
+              </div>
+            )}
             <div className={cn("relative flex min-h-0 flex-1 flex-col", tabs.active !== "chat" && "hidden")}>
               {pinnedEntry?.kind === "user" && (
                 <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-linear-to-b from-surface from-60% to-transparent px-8 pb-6 pt-3">
