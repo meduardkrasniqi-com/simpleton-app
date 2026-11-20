@@ -9,9 +9,7 @@ const types: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg
 
 export const isImage = (path: string) => path.startsWith("/") && extname(path).toLowerCase() in types;
 
-export function registerScheme() {
-  protocol.registerSchemesAsPrivileged([{ scheme, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
-}
+export const privilege = { scheme, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } };
 
 export function handle() {
   protocol.handle(scheme, async (request) => {

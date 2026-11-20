@@ -15,7 +15,7 @@ export function imagePath(src: string, root: string | undefined) {
   return `${root.replace(/\/$/, "")}/${clean.replace(/^\.\//, "")}`;
 }
 
-const url = (path: string) => `simpleton-image://local${path.split("/").map(encodeURIComponent).join("/")}`;
+export const imageUrl = (path: string) => `simpleton-image://local${path.split("/").map(encodeURIComponent).join("/")}`;
 
 export type Picture = { path: string; alt?: string };
 
@@ -39,7 +39,7 @@ export function Gallery({ items }: { items: Picture[] }) {
     <div className="mt-3 first:mt-0">
       <div className="group/gallery relative">
         <button type="button" onClick={() => setOpen(true)} title={item.path} className="block h-80 w-full overflow-hidden rounded-lg border border-line bg-panel transition-[border-color] hover:border-ink/20">
-          <img key={item.path} src={url(item.path)} alt={item.alt || nameOf(item.path)} onError={() => lost(item.path)} className="size-full animate-fade object-contain" />
+          <img key={item.path} src={imageUrl(item.path)} alt={item.alt || nameOf(item.path)} onError={() => lost(item.path)} className="size-full animate-fade object-contain" />
         </button>
         {many && (
           <>
@@ -69,7 +69,7 @@ export function Gallery({ items }: { items: Picture[] }) {
                   title={picture.alt || nameOf(picture.path)}
                   className={cn("h-10 w-14 overflow-hidden rounded-md border bg-panel transition-[opacity,border-color]", i === current ? "border-ink/50" : "border-line opacity-60 hover:opacity-100")}
                 >
-                  <img src={url(picture.path)} alt="" onError={() => lost(picture.path)} className="size-full object-cover object-top" />
+                  <img src={imageUrl(picture.path)} alt="" onError={() => lost(picture.path)} className="size-full object-cover object-top" />
                 </button>
               ))}
             </div>
@@ -95,7 +95,7 @@ export function Shot({ path, alt, className, quiet }: { path: string; alt?: stri
         title={path}
         className={cn("group/shot relative inline-block max-w-full overflow-hidden rounded-lg border border-line bg-panel align-top transition-[border-color,box-shadow] hover:border-ink/20 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]", state === "loading" && (quiet ? "hidden" : "h-40 w-64 animate-pulse"), className)}
       >
-        <img src={url(path)} alt={alt || name} onLoad={() => setState("ok")} onError={() => setState("missing")} className={cn("block max-h-72 max-w-full object-contain", state === "loading" && "invisible")} />
+        <img src={imageUrl(path)} alt={alt || name} onLoad={() => setState("ok")} onError={() => setState("missing")} className={cn("block max-h-72 max-w-full object-contain", state === "loading" && "invisible")} />
         {state === "ok" && <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/55 to-transparent px-2.5 pb-1.5 pt-5 text-left text-[11.5px] font-medium text-white opacity-0 transition-opacity group-hover/shot:opacity-100">{alt || name}</span>}
       </button>
       {open && <Annotator path={path} onClose={() => setOpen(false)} />}

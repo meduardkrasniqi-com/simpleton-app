@@ -5,6 +5,7 @@ import * as apps from "./apps";
 import * as attachments from "./attachments";
 import * as auth from "./auth";
 import * as commands from "./commands";
+import * as files from "./files";
 import * as images from "./images";
 import * as models from "./models";
 import * as reports from "./reports";
@@ -52,6 +53,9 @@ export function registerIpc() {
   ipcMain.handle(channels.files, (_event, id: string) => workspaces.files(id));
   ipcMain.handle(channels.readText, (_event, id: string, path: string) => workspaces.readText(id, path));
   ipcMain.handle(channels.writeText, (_event, id: string, path: string, text: string) => workspaces.writeText(id, path, text));
+  ipcMain.handle(channels.fileInfo, (_event, id: string, path: string) => files.info(id, path));
+  ipcMain.handle(channels.openFile, (_event, id: string, path: string) => files.open(id, path));
+  ipcMain.handle(channels.revealFile, (_event, id: string, path: string) => files.reveal(id, path));
   ipcMain.handle(channels.openImage, (_event, path: string) => images.open(path));
   ipcMain.handle(channels.readImage, (_event, path: string) => images.read(path));
   ipcMain.handle(channels.copyImage, (_event, bytes: Uint8Array) => images.copy(bytes));
